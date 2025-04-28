@@ -1,53 +1,46 @@
-import { DEBUG } from "./debug"
-
 /**
  * Split text into segments (sentences or paragraphs)
  */
 export function splitIntoSegments(text: string, segmentType: "sentence" | "paragraph" = "sentence"): string[] {
   if (!text || !text.trim()) return []
 
-  DEBUG.log("Splitting text:", text.substring(0, 50) + "...")
-
   if (segmentType === "paragraph") {
     // Split by paragraphs (double line breaks)
     const paragraphs = text.split(/\n\s*\n/)
-    const result = paragraphs.map((p) => p.trim()).filter((p) => p !== "")
-    DEBUG.log("Split into paragraphs:", result.length)
-    return result
+    return paragraphs.map((p) => p.trim()).filter((p) => p !== "")
   } else {
-    // Approach for sentence segmentation
-    // First, preserve line breaks by replacing them with a special marker
+    // Abordagem simplificada para sentenças
+    // Primeiro, preservar quebras de linha substituindo-as por um marcador especial
     const LINE_BREAK_MARKER = "___LINE_BREAK___"
     const textWithMarkers = text.replace(/\n/g, LINE_BREAK_MARKER)
 
-    // Split by sentences
+    // Dividir por sentenças
     const sentenceRegex = /[^.!?]+[.!?]+|[^.!?]+$/g
     const matches = textWithMarkers.match(sentenceRegex) || []
 
-    // Process each sentence and restore line breaks
+    // Processar cada sentença e restaurar quebras de linha
     const segments: string[] = []
 
     for (const match of matches) {
       if (match.includes(LINE_BREAK_MARKER)) {
-        // If the sentence contains line breaks, split it further
+        // Se a sentença contém quebras de linha, dividi-la
         const parts = match.split(LINE_BREAK_MARKER)
 
         for (let i = 0; i < parts.length; i++) {
           const part = parts[i].trim()
           if (part) segments.push(part)
 
-          // Add a line break segment after each part except the last
+          // Adicionar quebra de linha após cada parte exceto a última
           if (i < parts.length - 1) {
             segments.push("\n")
           }
         }
       } else {
-        // Regular sentence without line breaks
+        // Sentença normal sem quebras de linha
         segments.push(match.trim())
       }
     }
 
-    DEBUG.log("Split into sentences:", segments.length)
     return segments.filter(Boolean)
   }
 }
@@ -58,21 +51,19 @@ export function splitIntoSegments(text: string, segmentType: "sentence" | "parag
 export function joinSegments(segments: string[]): string {
   if (!segments || segments.length === 0) return ""
 
-  DEBUG.log("Joining segments:", segments.length)
-
-  // Join segments with proper spacing
+  // Juntar segmentos com espaçamento adequado
   let result = ""
 
   for (let i = 0; i < segments.length; i++) {
     const segment = segments[i]
 
-    // Handle line breaks
+    // Tratar quebras de linha
     if (segment === "\n") {
       result += "\n"
       continue
     }
 
-    // Add space between segments if needed
+    // Adicionar espaço entre segmentos se necessário
     if (i > 0 && segments[i - 1] !== "\n" && !result.endsWith("\n")) {
       result += " "
     }
@@ -80,7 +71,6 @@ export function joinSegments(segments: string[]): string {
     result += segment
   }
 
-  DEBUG.log("Joined text:", result.substring(0, 50) + "...")
   return result
 }
 
@@ -93,22 +83,18 @@ export interface SegmentPair {
   target: string
   isTranslated: boolean
   isLineBreak: boolean
-  originalIndex: number // Track the original position
 }
 
 export function createSegmentPairs(sourceSegments: string[], targetSegments: string[] = []): SegmentPair[] {
-  DEBUG.log("Creating segment pairs:", sourceSegments.length, targetSegments.length)
-
   return sourceSegments.map((source, index) => {
     const isLineBreak = source === "\n"
 
     return {
       id: `segment-${index}`,
       source: isLineBreak ? "" : source,
-      target: targetSegments[index] || "",
-      isTranslated: Boolean(targetSegments[index]),
+      target: targetSegments[index] || (isLineBreak ? "\n" : ""),
+      isTranslated: Boolean(targetSegments[index]) || isLineBreak,
       isLineBreak,
-      originalIndex: index,
     }
   })
 }

@@ -1,6 +1,6 @@
 // Utilitário simples para debug
 export const DEBUG = {
-  enabled: true,
+  enabled: false, // Desativado temporariamente
   log: (...args: any[]) => {
     if (DEBUG.enabled) {
       console.log("[DEBUG]", ...args)

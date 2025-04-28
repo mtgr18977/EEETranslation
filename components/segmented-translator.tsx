@@ -1,8 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
-
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useMemo, useState, useEffect, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -15,7 +13,6 @@ import AlignmentLegend from "./alignment-legend"
 import { useKeyboardShortcuts } from "@/contexts/keyboard-shortcuts-context"
 import KeyboardShortcutsModal from "./keyboard-shortcuts-modal"
 import { runQualityChecks } from "@/utils/quality-checks"
-import { DEBUG } from "@/utils/debug"
 
 interface SegmentedTranslatorProps {
   sourceText: string
@@ -34,7 +31,7 @@ export default function SegmentedTranslator({
   sourceLang,
   targetLang,
 }: SegmentedTranslatorProps) {
-  // Basic state
+  // Estado básico
   const [segmentType, setSegmentType] = useState<"sentence" | "paragraph">("sentence")
   const [segments, setSegments] = useState<SegmentPair[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
@@ -43,55 +40,39 @@ export default function SegmentedTranslator({
   const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null)
   const [qualityFilter, setQualityFilter] = useState<QualityFilter>("all")
 
-  // Use a ref for tracking if we need to update the target text
-  const shouldUpdateTargetRef = useRef(false)
-  const segmentsRef = useRef<SegmentPair[]>([])
+  // Refs para controle de estado
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const sourceTextRef = useRef(sourceText)
   const targetTextRef = useRef(targetText)
 
-  // Get keyboard shortcuts context
+  // Obter contexto de atalhos de teclado
   const { registerShortcutHandler, unregisterShortcutHandler, setShortcutsModalOpen } = useKeyboardShortcuts()
 
-  // Keep a reference to the current segments
+  // Processar texto em segmentos quando o texto fonte ou tipo de segmento muda
   useEffect(() => {
-    segmentsRef.current = segments
-  }, [segments])
-
-  // Process text into segments when source text or segment type changes
-  useEffect(() => {
-    // Skip if nothing has changed
+    // Pular se nada mudou
     if (sourceText === sourceTextRef.current && targetText === targetTextRef.current && segments.length > 0) {
       return
     }
-
-    DEBUG.log("Processing text into segments", {
-      sourceLength: sourceText.length,
-      targetLength: targetText?.length,
-      segmentType,
-    })
 
     setIsProcessing(true)
     sourceTextRef.current = sourceText
     targetTextRef.current = targetText
 
+    // Usar setTimeout para evitar bloqueio da UI
     const timeoutId = setTimeout(() => {
       try {
         const sourceSegments = splitIntoSegments(sourceText, segmentType)
         const targetSegments = targetText ? splitIntoSegments(targetText, segmentType) : []
 
-        DEBUG.log("Created segments", {
-          sourceSegments: sourceSegments.length,
-          targetSegments: targetSegments.length,
-        })
-
         const newSegments = createSegmentPairs(sourceSegments, targetSegments)
 
-        // Filter out line breaks for display
+        // Filtrar quebras de linha para exibição
         const displayableSegments = newSegments.filter((s) => !s.isLineBreak)
 
         setSegments(newSegments)
 
-        // Set the first segment as active if none is active and there are segments
+        // Definir o primeiro segmento como ativo se nenhum estiver ativo
         if (displayableSegments.length > 0 && !activeSegmentId) {
           setActiveSegmentId(displayableSegments[0].id)
         }
@@ -105,163 +86,135 @@ export default function SegmentedTranslator({
     return () => clearTimeout(timeoutId)
   }, [sourceText, targetText, segmentType, activeSegmentId])
 
-  // Update target text when needed
-  useEffect(() => {
-    if (shouldUpdateTargetRef.current && segments.length > 0) {
-      DEBUG.log("Updating target text from segments")
+  // Função para atualizar o texto alvo com debounce
+  const updateTargetTextWithDebounce = useCallback(
+    (newSegments: SegmentPair[]) => {
+      // Limpar timeout anterior se existir
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current)
+      }
 
-      const timeoutId = setTimeout(() => {
+      // Definir novo timeout
+      updateTimeoutRef.current = setTimeout(() => {
         try {
-          // Extract target text from segments
-          const targetSegments = segments.map((s) => s.target)
+          // Extrair texto alvo dos segmentos
+          const targetSegments = newSegments.map((s) => s.target)
           const newTargetText = joinSegments(targetSegments)
-
-          DEBUG.log("New target text", {
-            length: newTargetText.length,
-            preview: newTargetText.substring(0, 50) + "...",
-          })
 
           onUpdateTargetText(newTargetText)
         } catch (error) {
           console.error("Error updating target text:", error)
-        } finally {
-          shouldUpdateTargetRef.current = false
         }
       }, 500)
+    },
+    [onUpdateTargetText],
+  )
 
-      return () => clearTimeout(timeoutId)
-    }
-  }, [segments, onUpdateTargetText])
+  // Manipular atualização de segmento
+  const handleUpdateSegment = useCallback(
+    (id: string, translation: string) => {
+      setSegments((prev) => {
+        // Encontrar o segmento a ser atualizado
+        const segmentIndex = prev.findIndex((s) => s.id === id)
+        if (segmentIndex === -1) return prev
 
-  // Handle segment update
-  const handleUpdateSegment = useCallback((id: string, translation: string) => {
-    DEBUG.log(`Updating segment ${id} with translation: "${translation.substring(0, 20)}..."`)
+        const segmentToUpdate = prev[segmentIndex]
 
-    setSegments((prev) => {
-      // Find the segment to update
-      const segmentIndex = prev.findIndex((s) => s.id === id)
-      if (segmentIndex === -1) {
-        DEBUG.log(`Segment ${id} not found`)
-        return prev
-      }
+        // Pular quebras de linha
+        if (segmentToUpdate.isLineBreak) return prev
 
-      const segmentToUpdate = prev[segmentIndex]
+        // Se a tradução não mudou, não atualizar
+        if (segmentToUpdate.target === translation) return prev
 
-      // Skip line breaks
-      if (segmentToUpdate.isLineBreak) {
-        DEBUG.log(`Segment ${id} is a line break, skipping update`)
-        return prev
-      }
+        // Criar novo array com o segmento atualizado
+        const newSegments = [...prev]
+        newSegments[segmentIndex] = {
+          ...segmentToUpdate,
+          target: translation,
+          isTranslated: Boolean(translation.trim()),
+        }
 
-      // If the translation hasn't changed, don't update
-      if (segmentToUpdate.target === translation) {
-        DEBUG.log(`Segment ${id} translation hasn't changed`)
-        return prev
-      }
+        // Agendar atualização do texto alvo
+        updateTargetTextWithDebounce(newSegments)
 
-      // Create a new array with the updated segment
-      const newSegments = [...prev]
-      newSegments[segmentIndex] = {
-        ...segmentToUpdate,
-        target: translation,
-        isTranslated: Boolean(translation.trim()),
-      }
+        return newSegments
+      })
+    },
+    [updateTargetTextWithDebounce],
+  )
 
-      // Mark for target text update
-      shouldUpdateTargetRef.current = true
-
-      return newSegments
-    })
-  }, [])
-
-  // Navigation handlers
+  // Manipuladores de navegação
   const handleNextSegment = useCallback(() => {
     if (!activeSegmentId || segments.length === 0) return
 
-    DEBUG.log(`Navigating to next segment from ${activeSegmentId}`)
-
-    // Find displayable segments (non-line breaks)
+    // Encontrar segmentos exibíveis (não quebras de linha)
     const displayableSegments = segments.filter((s) => !s.isLineBreak)
 
     const currentIndex = displayableSegments.findIndex((s) => s.id === activeSegmentId)
     if (currentIndex < displayableSegments.length - 1) {
       const nextSegment = displayableSegments[currentIndex + 1]
-      DEBUG.log(`Next segment is ${nextSegment.id}`)
       setActiveSegmentId(nextSegment.id)
-    } else {
-      DEBUG.log("Already at last segment")
     }
   }, [activeSegmentId, segments])
 
   const handlePrevSegment = useCallback(() => {
     if (!activeSegmentId || segments.length === 0) return
 
-    DEBUG.log(`Navigating to previous segment from ${activeSegmentId}`)
-
-    // Find displayable segments (non-line breaks)
+    // Encontrar segmentos exibíveis (não quebras de linha)
     const displayableSegments = segments.filter((s) => !s.isLineBreak)
 
     const currentIndex = displayableSegments.findIndex((s) => s.id === activeSegmentId)
     if (currentIndex > 0) {
       const prevSegment = displayableSegments[currentIndex - 1]
-      DEBUG.log(`Previous segment is ${prevSegment.id}`)
       setActiveSegmentId(prevSegment.id)
-    } else {
-      DEBUG.log("Already at first segment")
     }
   }, [activeSegmentId, segments])
 
   const handleNextUntranslated = useCallback(() => {
     if (segments.length === 0) return
 
-    DEBUG.log("Finding next untranslated segment")
-
-    // Find displayable segments (non-line breaks)
+    // Encontrar segmentos exibíveis (não quebras de linha)
     const displayableSegments = segments.filter((s) => !s.isLineBreak)
 
     const currentIndex = activeSegmentId ? displayableSegments.findIndex((s) => s.id === activeSegmentId) : -1
 
-    // Find the next untranslated segment
+    // Encontrar o próximo segmento não traduzido
     for (let i = currentIndex + 1; i < displayableSegments.length; i++) {
       if (!displayableSegments[i].isTranslated) {
-        DEBUG.log(`Found untranslated segment ${displayableSegments[i].id}`)
         setActiveSegmentId(displayableSegments[i].id)
         return
       }
     }
 
-    // If not found after current position, start from beginning
+    // Se não encontrado após a posição atual, começar do início
     if (currentIndex > 0) {
       for (let i = 0; i < currentIndex; i++) {
         if (!displayableSegments[i].isTranslated) {
-          DEBUG.log(`Found untranslated segment ${displayableSegments[i].id} (wrapped)`)
           setActiveSegmentId(displayableSegments[i].id)
           return
         }
       }
     }
-
-    DEBUG.log("No untranslated segments found")
   }, [activeSegmentId, segments])
 
-  // Save translation handler
+  // Manipulador de salvamento de tradução
   const handleSaveTranslation = useCallback(() => {
-    DEBUG.log("Saving translation")
-    shouldUpdateTargetRef.current = true
-    // Force an update to trigger the useEffect
-    setSegments((prev) => [...prev])
+    // Forçar uma atualização para acionar o useEffect
+    const targetSegments = segments.map((s) => s.target)
+    const newTargetText = joinSegments(targetSegments)
+    onUpdateTargetText(newTargetText)
     alert("Translation saved!")
-  }, [])
+  }, [segments, onUpdateTargetText])
 
-  // Register global keyboard shortcuts
+  // Registrar atalhos de teclado globais
   useEffect(() => {
-    // Register handlers
+    // Registrar manipuladores
     registerShortcutHandler("nextSegment", handleNextSegment)
     registerShortcutHandler("prevSegment", handlePrevSegment)
     registerShortcutHandler("nextUntranslated", handleNextUntranslated)
     registerShortcutHandler("saveTranslation", handleSaveTranslation)
 
-    // Cleanup function
+    // Função de limpeza
     return () => {
       unregisterShortcutHandler("nextSegment")
       unregisterShortcutHandler("prevSegment")
@@ -277,19 +230,17 @@ export default function SegmentedTranslator({
     handleSaveTranslation,
   ])
 
-  // Handle batch translation
+  // Manipular tradução em lote
   const handleTranslateAll = async () => {
     const untranslatedSegments = segments.filter((s) => !s.isTranslated && s.source.trim() && !s.isLineBreak)
     if (untranslatedSegments.length === 0) return
 
-    DEBUG.log(`Batch translating ${untranslatedSegments.length} segments`)
     setIsBatchTranslating(true)
     setTranslationProgress(0)
 
     try {
       for (let i = 0; i < untranslatedSegments.length; i++) {
         const segment = untranslatedSegments[i]
-        DEBUG.log(`Translating segment ${segment.id}`)
 
         const result = await translateText(segment.source, sourceLang, targetLang)
 
@@ -303,15 +254,17 @@ export default function SegmentedTranslator({
       console.error("Batch translation error:", error)
     } finally {
       setIsBatchTranslating(false)
-      shouldUpdateTargetRef.current = true
-      // Force an update to trigger the useEffect
-      setSegments((prev) => [...prev])
+
+      // Forçar uma atualização para acionar o useEffect
+      const targetSegments = segments.map((s) => s.target)
+      const newTargetText = joinSegments(targetSegments)
+      onUpdateTargetText(newTargetText)
     }
   }
 
-  // Filter segments based on quality
+  // Filtrar segmentos com base na qualidade
   const filteredSegments = useMemo(() => {
-    // First filter out line breaks
+    // Primeiro filtrar quebras de linha
     const displayableSegments = segments.filter((s) => !s.isLineBreak)
 
     if (qualityFilter === "all") {
@@ -359,14 +312,14 @@ export default function SegmentedTranslator({
     )
   }
 
-  // Count only real segments (not line breaks)
+  // Contar apenas segmentos reais (não quebras de linha)
   const displayableSegments = segments.filter((s) => !s.isLineBreak)
   const untranslatedCount = displayableSegments.filter((s) => !s.isTranslated && s.source.trim()).length
   const totalSegments = displayableSegments.filter((s) => s.source.trim()).length
   const translatedPercent =
     totalSegments > 0 ? Math.round(((totalSegments - untranslatedCount) / totalSegments) * 100) : 0
 
-  // Calculate quality statistics
+  // Calcular estatísticas de qualidade
   const qualityStats = {
     errorCount: 0,
     warningCount: 0,
