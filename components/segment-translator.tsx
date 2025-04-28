@@ -44,12 +44,14 @@ const SegmentTranslator = memo(
 
     // Refs
     const textareaRef = useRef<HTMLTextAreaElement>(null)
-    const hasChangesRef = useRef(false)
+    const previousSegmentId = useRef(segment.id)
 
     // Atualizar texto local quando o segmento muda
     useEffect(() => {
-      setLocalText(segment.target)
-      hasChangesRef.current = false
+      if (previousSegmentId.current !== segment.id) {
+        setLocalText(segment.target)
+        previousSegmentId.current = segment.id
+      }
     }, [segment.id, segment.target])
 
     // Verificar qualidade quando o texto muda
@@ -68,15 +70,6 @@ const SegmentTranslator = memo(
         textareaRef.current.focus()
       }
     }, [isActive, viewMode])
-
-    // Salvar mudanças quando o componente é desmontado
-    useEffect(() => {
-      return () => {
-        if (hasChangesRef.current) {
-          onUpdateSegment(segment.id, localText)
-        }
-      }
-    }, [segment.id, localText, onUpdateSegment])
 
     // Handlers
     async function handleTranslate() {
@@ -101,7 +94,6 @@ const SegmentTranslator = memo(
         setLocalText(suggestion)
         onUpdateSegment(segment.id, suggestion)
         setSuggestion(null)
-        hasChangesRef.current = false
       }
     }
 
@@ -111,9 +103,8 @@ const SegmentTranslator = memo(
 
     function handleToggleViewMode(value: string) {
       // Salvar mudanças antes de mudar de visualização
-      if (hasChangesRef.current && viewMode === "edit") {
+      if (localText !== segment.target) {
         onUpdateSegment(segment.id, localText)
-        hasChangesRef.current = false
       }
 
       setViewMode(value as "edit" | "align")
@@ -122,22 +113,19 @@ const SegmentTranslator = memo(
     function handleTextChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
       const newText = e.target.value
       setLocalText(newText)
-      hasChangesRef.current = true
     }
 
     function handleBlur() {
-      if (hasChangesRef.current) {
+      if (localText !== segment.target) {
         onUpdateSegment(segment.id, localText)
-        hasChangesRef.current = false
       }
     }
 
     function handleActivate() {
       if (!isActive) {
         // Salvar mudanças antes de ativar
-        if (hasChangesRef.current) {
+        if (localText !== segment.target) {
           onUpdateSegment(segment.id, localText)
-          hasChangesRef.current = false
         }
         onActivate()
       }
