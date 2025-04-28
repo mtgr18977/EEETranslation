@@ -1,15 +1,17 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import SegmentTranslator from "./segment-translator"
 import { createSegmentPairs, joinSegments, type SegmentPair, splitIntoSegments } from "@/utils/segmentation"
-import { Loader2 } from "lucide-react"
+import { Loader2, Keyboard } from "lucide-react"
 import { translateText } from "@/app/actions/translate"
 import { Progress } from "@/components/ui/progress"
 import AlignmentLegend from "./alignment-legend"
+import { useKeyboardShortcuts } from "@/contexts/keyboard-shortcuts-context"
+import KeyboardShortcutsModal from "./keyboard-shortcuts-modal"
 
 interface SegmentedTranslatorProps {
   sourceText: string
@@ -31,20 +33,36 @@ export default function SegmentedTranslator({
   const [isProcessing, setIsProcessing] = useState(false)
   const [isBatchTranslating, setIsBatchTranslating] = useState(false)
   const [translationProgress, setTranslationProgress] = useState(0)
+  const {
+    activeSegmentId,
+    setActiveSegmentId,
+    registerShortcutHandler,
+    unregisterShortcutHandler,
+    setShortcutsModalOpen,
+  } = useKeyboardShortcuts()
 
   // Process text into segments when source text or segment type changes
   useEffect(() => {
     setIsProcessing(true)
 
     // Use setTimeout to avoid blocking the UI
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       const sourceSegments = splitIntoSegments(sourceText, segmentType)
       const targetSegments = targetText ? splitIntoSegments(targetText, segmentType) : []
 
-      setSegments(createSegmentPairs(sourceSegments, targetSegments))
+      const newSegments = createSegmentPairs(sourceSegments, targetSegments)
+      setSegments(newSegments)
+
+      // Set the first segment as active if none is active and there are segments
+      if (newSegments.length > 0 && !activeSegmentId) {
+        setActiveSegmentId(newSegments[0].id)
+      }
+
       setIsProcessing(false)
     }, 0)
-  }, [sourceText, segmentType, targetText])
+
+    return () => clearTimeout(timeoutId)
+  }, [sourceText, segmentType, targetText, activeSegmentId, setActiveSegmentId])
 
   // Update target text when segments change
   useEffect(() => {
@@ -54,13 +72,87 @@ export default function SegmentedTranslator({
     }
   }, [segments, onUpdateTargetText])
 
-  const handleUpdateSegment = (id: string, translation: string) => {
+  // Memoize these functions to prevent them from changing on every render
+  const handleNextSegment = useCallback(() => {
+    if (!activeSegmentId || segments.length === 0) return
+
+    const currentIndex = segments.findIndex((s) => s.id === activeSegmentId)
+    if (currentIndex < segments.length - 1) {
+      setActiveSegmentId(segments[currentIndex + 1].id)
+    }
+  }, [activeSegmentId, segments, setActiveSegmentId])
+
+  const handlePrevSegment = useCallback(() => {
+    if (!activeSegmentId || segments.length === 0) return
+
+    const currentIndex = segments.findIndex((s) => s.id === activeSegmentId)
+    if (currentIndex > 0) {
+      setActiveSegmentId(segments[currentIndex - 1].id)
+    }
+  }, [activeSegmentId, segments, setActiveSegmentId])
+
+  const handleNextUntranslated = useCallback(() => {
+    if (segments.length === 0) return
+
+    const currentIndex = activeSegmentId ? segments.findIndex((s) => s.id === activeSegmentId) : -1
+
+    // Find the next untranslated segment
+    for (let i = currentIndex + 1; i < segments.length; i++) {
+      if (!segments[i].isTranslated) {
+        setActiveSegmentId(segments[i].id)
+        return
+      }
+    }
+
+    // If not found after current position, start from beginning
+    if (currentIndex > 0) {
+      for (let i = 0; i < currentIndex; i++) {
+        if (!segments[i].isTranslated) {
+          setActiveSegmentId(segments[i].id)
+          return
+        }
+      }
+    }
+  }, [activeSegmentId, segments, setActiveSegmentId])
+
+  const handleSaveTranslation = useCallback(() => {
+    // Simulate saving - in a real app this would call an API
+    alert("Translation saved!")
+  }, [])
+
+  // Use a stable reference for the shortcut handlers
+  const shortcutHandlers = useMemo(
+    () => ({
+      nextSegment: handleNextSegment,
+      prevSegment: handlePrevSegment,
+      nextUntranslated: handleNextUntranslated,
+      saveTranslation: handleSaveTranslation,
+    }),
+    [handleNextSegment, handlePrevSegment, handleNextUntranslated, handleSaveTranslation],
+  )
+
+  // Register global keyboard shortcuts
+  useEffect(() => {
+    registerShortcutHandler("nextSegment", shortcutHandlers.nextSegment)
+    registerShortcutHandler("prevSegment", shortcutHandlers.prevSegment)
+    registerShortcutHandler("nextUntranslated", shortcutHandlers.nextUntranslated)
+    registerShortcutHandler("saveTranslation", shortcutHandlers.saveTranslation)
+
+    return () => {
+      unregisterShortcutHandler("nextSegment")
+      unregisterShortcutHandler("prevSegment")
+      unregisterShortcutHandler("nextUntranslated")
+      unregisterShortcutHandler("saveTranslation")
+    }
+  }, [registerShortcutHandler, unregisterShortcutHandler, shortcutHandlers])
+
+  const handleUpdateSegment = useCallback((id: string, translation: string) => {
     setSegments((prev) =>
       prev.map((segment) =>
         segment.id === id ? { ...segment, target: translation, isTranslated: Boolean(translation) } : segment,
       ),
     )
-  }
+  }, [])
 
   const handleTranslateAll = async () => {
     const untranslatedSegments = segments.filter((s) => !s.isTranslated && s.source.trim())
@@ -129,6 +221,11 @@ export default function SegmentedTranslator({
           </Select>
 
           <AlignmentLegend />
+
+          <Button variant="outline" size="sm" className="h-8" onClick={() => setShortcutsModalOpen(true)}>
+            <Keyboard className="h-4 w-4 mr-1" />
+            Shortcuts
+          </Button>
         </div>
 
         <div className="flex items-center gap-4">
@@ -169,9 +266,13 @@ export default function SegmentedTranslator({
             sourceLang={sourceLang}
             targetLang={targetLang}
             index={index}
+            isActive={segment.id === activeSegmentId}
+            onActivate={() => setActiveSegmentId(segment.id)}
           />
         ))}
       </div>
+
+      <KeyboardShortcutsModal />
     </div>
   )
 }

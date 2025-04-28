@@ -1,7 +1,7 @@
 "use server"
 
 // In a real application, you would use environment variables for these
-const API_KEY = "YOUR_GOOGLE_TRANSLATE_API_KEY"
+const API_KEY = "AIzaSyDXqtLBOcUi1iaQiBVu9HlQiCo5V3feIIQ"
 const API_URL = "https://translation.googleapis.com/language/translate/v2"
 
 export async function translateText(text: string, sourceLang = "en", targetLang = "pt") {
