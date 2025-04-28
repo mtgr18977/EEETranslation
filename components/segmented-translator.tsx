@@ -15,6 +15,7 @@ import { runQualityChecks } from "@/utils/quality-checks"
 import { calculateReadability } from "@/utils/readability"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import type { GlossaryTerm } from "@/utils/glossary"
+import type { ApiSettings } from "./api-settings-modal"
 
 interface SegmentedTranslatorProps {
   sourceText: string
@@ -23,6 +24,7 @@ interface SegmentedTranslatorProps {
   sourceLang: string
   targetLang: string
   glossaryTerms?: GlossaryTerm[]
+  apiSettings?: ApiSettings
 }
 
 export default function SegmentedTranslator({
@@ -32,6 +34,7 @@ export default function SegmentedTranslator({
   sourceLang,
   targetLang,
   glossaryTerms = [],
+  apiSettings,
 }: SegmentedTranslatorProps) {
   // Estado básico
   const [segments, setSegments] = useState<SegmentPair[]>([])
@@ -44,6 +47,7 @@ export default function SegmentedTranslator({
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [translationError, setTranslationError] = useState<string | null>(null)
   const [failedSegments, setFailedSegments] = useState<string[]>([])
+  const [translationDetails, setTranslationDetails] = useState<string | null>(null)
 
   // Refs para controle de estado
   const sourceTextRef = useRef(sourceText)
@@ -71,6 +75,10 @@ export default function SegmentedTranslator({
         const targetSegments = targetText ? splitIntoSegments(targetText, "sentence") : []
 
         const newSegments = createSegmentPairs(sourceSegments, targetSegments)
+
+        // Filtrar quebras  : []
+
+        //const newSegments = createSegmentPairs(sourceSegments, targetSegments)
 
         // Filtrar quebras de linha para exibição
         const displayableSegments = newSegments.filter((s) => !s.isLineBreak)
@@ -199,6 +207,7 @@ export default function SegmentedTranslator({
     setIsBatchTranslating(true)
     setTranslationProgress(0)
     setTranslationError(null)
+    setTranslationDetails(null)
     setFailedSegments([])
 
     const newFailedSegments: string[] = []
@@ -239,6 +248,11 @@ export default function SegmentedTranslator({
           } else {
             console.error(`Falha ao traduzir segmento ${segment.id}:`, result.message || "Erro desconhecido")
             newFailedSegments.push(segment.id)
+
+            // Armazenar detalhes do erro para diagnóstico
+            if (result.details) {
+              setTranslationDetails(JSON.stringify(result.details, null, 2))
+            }
           }
         } catch (error) {
           console.error(`Erro ao traduzir segmento ${segment.id}:`, error)
@@ -248,7 +262,7 @@ export default function SegmentedTranslator({
         setTranslationProgress(Math.round(((i + 1) / untranslatedSegments.length) * 100))
 
         // Pequeno atraso para evitar sobrecarga da API
-        await new Promise((resolve) => setTimeout(resolve, 300))
+        await new Promise((resolve) => setTimeout(resolve, 500))
       }
 
       if (newFailedSegments.length > 0) {
@@ -464,7 +478,15 @@ export default function SegmentedTranslator({
       {translationError && (
         <Alert className="bg-amber-50 border-amber-200">
           <AlertTriangle className="h-4 w-4 text-amber-500 mr-2" />
-          <AlertDescription className="text-amber-800">{translationError}</AlertDescription>
+          <AlertDescription className="text-amber-800">
+            {translationError}
+            {translationDetails && (
+              <details className="mt-2">
+                <summary className="cursor-pointer text-sm font-medium">Detalhes técnicos</summary>
+                <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-auto max-h-40">{translationDetails}</pre>
+              </details>
+            )}
+          </AlertDescription>
         </Alert>
       )}
 

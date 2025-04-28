@@ -12,6 +12,10 @@ import SourceText from "@/components/source-text"
 import TargetText from "@/components/target-text"
 import { KeyboardShortcutsProvider } from "@/contexts/keyboard-shortcuts-context"
 import { type GlossaryTerm, loadGlossaryFromCSV } from "@/utils/glossary"
+import type { ApiSettings } from "@/components/api-settings-modal"
+
+// Chave para armazenar configurações no localStorage
+const API_SETTINGS_STORAGE_KEY = "translation-platform-api-settings"
 
 export default function TranslationPlatform() {
   const [sourceText, setSourceText] = useState<string>("")
@@ -23,10 +27,28 @@ export default function TranslationPlatform() {
   const [viewMode, setViewMode] = useState<string>("segmented")
   const [glossaryTerms, setGlossaryTerms] = useState<GlossaryTerm[]>([])
   const [isLoadingGlossary, setIsLoadingGlossary] = useState(false)
+  const [apiSettings, setApiSettings] = useState<ApiSettings>({
+    googleApiKey: "",
+    libreApiUrl: "https://libretranslate.de/translate",
+    useLocalStorage: true,
+  })
 
   // URL do glossário
   const glossaryUrl =
     "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/knowledge-share-terms-2025-04-28-w7A52xOLZShJKyLh1KN2WzIPADca84.csv"
+
+  // Carregar configurações de API do localStorage
+  useEffect(() => {
+    const savedSettings = localStorage.getItem(API_SETTINGS_STORAGE_KEY)
+    if (savedSettings) {
+      try {
+        const parsedSettings = JSON.parse(savedSettings)
+        setApiSettings(parsedSettings)
+      } catch (error) {
+        console.error("Erro ao carregar configurações de API:", error)
+      }
+    }
+  }, [])
 
   // Carregar glossário quando o componente montar
   useEffect(() => {
@@ -62,6 +84,20 @@ export default function TranslationPlatform() {
     document.body.removeChild(element)
   }
 
+  const handleUpdateApiSettings = (newSettings: ApiSettings) => {
+    setApiSettings(newSettings)
+
+    // Salvar no localStorage se a opção estiver ativada
+    if (newSettings.useLocalStorage) {
+      localStorage.setItem(API_SETTINGS_STORAGE_KEY, JSON.stringify(newSettings))
+    } else {
+      localStorage.removeItem(API_SETTINGS_STORAGE_KEY)
+    }
+
+    // Aqui você poderia atualizar as configurações no servidor se necessário
+    console.log("API settings updated:", newSettings)
+  }
+
   return (
     <KeyboardShortcutsProvider>
       <main className="flex flex-col h-screen">
@@ -70,6 +106,8 @@ export default function TranslationPlatform() {
           onDownload={handleDownload}
           onOpenTM={() => setShowTM(true)}
           onOpenGlossary={() => setShowGlossary(true)}
+          onUpdateApiSettings={handleUpdateApiSettings}
+          apiSettings={apiSettings}
         />
 
         <div className="flex flex-1 p-4 gap-4 overflow-hidden">
@@ -98,6 +136,7 @@ export default function TranslationPlatform() {
                     sourceLang={sourceLang}
                     targetLang={targetLang}
                     glossaryTerms={glossaryTerms}
+                    apiSettings={apiSettings}
                   />
                 </TabsContent>
 
