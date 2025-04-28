@@ -4,8 +4,13 @@
 const API_KEY = "AIzaSyDXqtLBOcUi1iaQiBVu9HlQiCo5V3feIIQ"
 const API_URL = "https://translation.googleapis.com/language/translate/v2"
 
+// Vamos adicionar logs de depuração à função translateText para verificar se está funcionando corretamente
+
+// Substitua a função translateText por esta versão:
 export async function translateText(text: string, sourceLang = "en", targetLang = "pt") {
   if (!text.trim()) return { success: false, message: "No text provided" }
+
+  console.log(`Traduzindo texto: "${text.substring(0, 30)}..." de ${sourceLang} para ${targetLang}`)
 
   try {
     const response = await fetch(`${API_URL}?key=${API_KEY}`, {
@@ -22,6 +27,7 @@ export async function translateText(text: string, sourceLang = "en", targetLang 
     })
 
     const data = await response.json()
+    console.log("Resposta da API:", data)
 
     if (!response.ok) {
       console.error("Translation API error:", data)
@@ -31,9 +37,12 @@ export async function translateText(text: string, sourceLang = "en", targetLang 
       }
     }
 
+    const translation = data.data.translations[0].translatedText
+    console.log(`Tradução recebida: "${translation.substring(0, 30)}..."`)
+
     return {
       success: true,
-      translation: data.data.translations[0].translatedText,
+      translation: translation,
     }
   } catch (error) {
     console.error("Translation error:", error)
