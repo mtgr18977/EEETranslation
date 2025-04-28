@@ -5,6 +5,7 @@ import { runQualityChecks } from "@/utils/quality-checks"
 import { splitIntoSegments } from "@/utils/segmentation"
 import { AlertCircle, AlertTriangle, CheckCircle } from "lucide-react"
 import { useMemo } from "react"
+import ReadabilityReport from "./readability-report"
 
 interface InfoPanelProps {
   sourceText: string
@@ -167,6 +168,11 @@ export default function InfoPanel({ sourceText, targetText, sourceLang = "en", t
               </div>
             </div>
           )}
+
+          {/* Relatório de Leiturabilidade */}
+          {sourceText && <ReadabilityReport text={sourceText} lang={sourceLang} />}
+
+          {targetText && <ReadabilityReport text={targetText} lang={targetLang} />}
         </div>
       </CardContent>
     </Card>
