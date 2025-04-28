@@ -13,6 +13,7 @@ import AlignedText from "./aligned-text"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { runQualityChecks, type QualityIssue } from "@/utils/quality-checks"
 import QualityIssuesDisplay from "./quality-issues-display"
+import { DEBUG } from "@/utils/debug"
 
 interface SegmentTranslatorProps {
   segment: SegmentPair
@@ -44,29 +45,51 @@ export default function SegmentTranslator({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
   const hasChangesRef = useRef(false)
-  const previousSegmentIdRef = useRef<string | null>(null)
+  const segmentIdRef = useRef(segment.id)
 
-  // Update local text when segment changes (but not during active editing)
+  // Debug logging
   useEffect(() => {
-    // Only update local text if this is a different segment or we don't have unsaved changes
-    if (previousSegmentIdRef.current !== segment.id || !hasChangesRef.current) {
+    DEBUG.log(`Segment ${segment.id} rendered, isActive=${isActive}, text="${localText}"`)
+  }, [segment.id, isActive, localText])
+
+  // Update local text when segment changes
+  useEffect(() => {
+    // Only update if the segment ID has changed
+    if (segmentIdRef.current !== segment.id) {
+      DEBUG.log(`Segment ID changed from ${segmentIdRef.current} to ${segment.id}, updating local text`)
       setLocalText(segment.target)
-      previousSegmentIdRef.current = segment.id
+      segmentIdRef.current = segment.id
+      hasChangesRef.current = false
     }
   }, [segment.id, segment.target])
 
   // Run quality checks when segment or local text changes
   useEffect(() => {
-    const issues = segment.target.trim() ? runQualityChecks(segment.source, segment.target) : []
-    setQualityIssues(issues)
+    if (segment.target.trim()) {
+      const issues = runQualityChecks(segment.source, segment.target)
+      setQualityIssues(issues)
+    } else {
+      setQualityIssues([])
+    }
   }, [segment.source, segment.target])
 
   // Focus the textarea when segment becomes active
   useEffect(() => {
     if (isActive && viewMode === "edit" && textareaRef.current) {
+      DEBUG.log(`Focusing textarea for segment ${segment.id}`)
       textareaRef.current.focus()
     }
-  }, [isActive, viewMode])
+  }, [isActive, viewMode, segment.id])
+
+  // Save changes when component unmounts
+  useEffect(() => {
+    return () => {
+      if (hasChangesRef.current) {
+        DEBUG.log(`Saving changes on unmount for segment ${segment.id}`)
+        onUpdateSegment(segment.id, localText)
+      }
+    }
+  }, [segment.id, localText, onUpdateSegment])
 
   // Simple handlers
   async function handleTranslate() {
@@ -88,14 +111,11 @@ export default function SegmentTranslator({
 
   function handleApplySuggestion() {
     if (suggestion) {
+      DEBUG.log(`Applying suggestion for segment ${segment.id}`)
       setLocalText(suggestion)
       onUpdateSegment(segment.id, suggestion)
       setSuggestion(null)
       hasChangesRef.current = false
-
-      // Run quality checks on the suggestion
-      const issues = runQualityChecks(segment.source, suggestion)
-      setQualityIssues(issues)
     }
   }
 
@@ -106,12 +126,9 @@ export default function SegmentTranslator({
   function handleToggleViewMode(value: string) {
     // Save changes before switching views
     if (hasChangesRef.current && viewMode === "edit") {
+      DEBUG.log(`Saving changes before view mode change for segment ${segment.id}`)
       onUpdateSegment(segment.id, localText)
       hasChangesRef.current = false
-
-      // Run quality checks on the updated text
-      const issues = runQualityChecks(segment.source, localText)
-      setQualityIssues(issues)
     }
 
     setViewMode(value as "edit" | "align")
@@ -119,21 +136,14 @@ export default function SegmentTranslator({
 
   function handleTextChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const newText = e.target.value
+    DEBUG.log(`Text changed for segment ${segment.id}: "${newText.substring(0, 20)}..."`)
     setLocalText(newText)
     hasChangesRef.current = true
-
-    // Run quality checks as the user types (debounced in a real app)
-    if (newText.trim()) {
-      const issues = runQualityChecks(segment.source, newText)
-      setQualityIssues(issues)
-    } else {
-      setQualityIssues([])
-    }
   }
 
   function handleBlur() {
     if (hasChangesRef.current) {
-      // Atualizar apenas o segmento atual, sem afetar outros
+      DEBUG.log(`Saving changes on blur for segment ${segment.id}`)
       onUpdateSegment(segment.id, localText)
       hasChangesRef.current = false
     }
@@ -143,6 +153,7 @@ export default function SegmentTranslator({
     if (!isActive) {
       // Save changes in current segment before activating new one
       if (hasChangesRef.current) {
+        DEBUG.log(`Saving changes before activation for segment ${segment.id}`)
         onUpdateSegment(segment.id, localText)
         hasChangesRef.current = false
       }
@@ -195,7 +206,9 @@ export default function SegmentTranslator({
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <div className="text-sm font-medium text-muted-foreground">Segment {index + 1}</div>
+            <div className="text-sm font-medium text-muted-foreground">
+              Segment {index + 1} (ID: {segment.id})
+            </div>
             {isActive && (
               <div className="flex items-center text-xs text-muted-foreground">
                 <Keyboard className="h-3 w-3 mr-1" />

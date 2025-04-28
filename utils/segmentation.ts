@@ -1,50 +1,54 @@
+import { DEBUG } from "./debug"
+
 /**
  * Split text into segments (sentences or paragraphs)
  */
 export function splitIntoSegments(text: string, segmentType: "sentence" | "paragraph" = "sentence"): string[] {
-  if (!text.trim()) return []
+  if (!text || !text.trim()) return []
+
+  DEBUG.log("Splitting text:", text.substring(0, 50) + "...")
 
   if (segmentType === "paragraph") {
     // Split by paragraphs (double line breaks)
     const paragraphs = text.split(/\n\s*\n/)
-    return paragraphs.map((p) => p.trim()).filter((p) => p !== "")
+    const result = paragraphs.map((p) => p.trim()).filter((p) => p !== "")
+    DEBUG.log("Split into paragraphs:", result.length)
+    return result
   } else {
-    // Abordagem mais robusta para segmentação por sentenças
-    // Primeiro, dividimos o texto em linhas
-    const lines = text.split(/\n/)
+    // Approach for sentence segmentation
+    // First, preserve line breaks by replacing them with a special marker
+    const LINE_BREAK_MARKER = "___LINE_BREAK___"
+    const textWithMarkers = text.replace(/\n/g, LINE_BREAK_MARKER)
+
+    // Split by sentences
+    const sentenceRegex = /[^.!?]+[.!?]+|[^.!?]+$/g
+    const matches = textWithMarkers.match(sentenceRegex) || []
+
+    // Process each sentence and restore line breaks
     const segments: string[] = []
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]
+    for (const match of matches) {
+      if (match.includes(LINE_BREAK_MARKER)) {
+        // If the sentence contains line breaks, split it further
+        const parts = match.split(LINE_BREAK_MARKER)
 
-      // Se a linha estiver vazia, adicionamos um segmento vazio para preservar a quebra de linha
-      if (!line.trim()) {
-        segments.push("\n")
-        continue
-      }
+        for (let i = 0; i < parts.length; i++) {
+          const part = parts[i].trim()
+          if (part) segments.push(part)
 
-      // Dividir a linha em sentenças
-      // Usamos uma regex que captura sentenças terminadas por ., ! ou ?
-      const sentenceMatches = line.match(/[^.!?]+[.!?]+|\s*\n\s*\n\s*|[^.!?]+$/g)
-
-      if (sentenceMatches) {
-        for (const sentence of sentenceMatches) {
-          if (sentence.trim()) {
-            segments.push(sentence.trim())
+          // Add a line break segment after each part except the last
+          if (i < parts.length - 1) {
+            segments.push("\n")
           }
         }
-      } else if (line.trim()) {
-        // Se não encontramos sentenças mas a linha não está vazia, adicionamos a linha inteira
-        segments.push(line.trim())
-      }
-
-      // Adicionamos uma quebra de linha após cada linha, exceto a última
-      if (i < lines.length - 1) {
-        segments.push("\n")
+      } else {
+        // Regular sentence without line breaks
+        segments.push(match.trim())
       }
     }
 
-    return segments
+    DEBUG.log("Split into sentences:", segments.length)
+    return segments.filter(Boolean)
   }
 }
 
@@ -52,15 +56,32 @@ export function splitIntoSegments(text: string, segmentType: "sentence" | "parag
  * Join segments back into a single text
  */
 export function joinSegments(segments: string[]): string {
-  if (!segments.length) return ""
+  if (!segments || segments.length === 0) return ""
 
-  // Abordagem simplificada: apenas concatenar os segmentos
-  // Isso funciona porque preservamos as quebras de linha como segmentos separados
-  return segments
-    .join(" ")
-    .replace(/\s+\n\s+/g, "\n")
-    .replace(/\s+/g, " ")
-    .trim()
+  DEBUG.log("Joining segments:", segments.length)
+
+  // Join segments with proper spacing
+  let result = ""
+
+  for (let i = 0; i < segments.length; i++) {
+    const segment = segments[i]
+
+    // Handle line breaks
+    if (segment === "\n") {
+      result += "\n"
+      continue
+    }
+
+    // Add space between segments if needed
+    if (i > 0 && segments[i - 1] !== "\n" && !result.endsWith("\n")) {
+      result += " "
+    }
+
+    result += segment
+  }
+
+  DEBUG.log("Joined text:", result.substring(0, 50) + "...")
+  return result
 }
 
 /**
@@ -71,20 +92,23 @@ export interface SegmentPair {
   source: string
   target: string
   isTranslated: boolean
-  isLineBreak?: boolean // Novo campo para identificar quebras de linha
+  isLineBreak: boolean
+  originalIndex: number // Track the original position
 }
 
 export function createSegmentPairs(sourceSegments: string[], targetSegments: string[] = []): SegmentPair[] {
+  DEBUG.log("Creating segment pairs:", sourceSegments.length, targetSegments.length)
+
   return sourceSegments.map((source, index) => {
-    // Identificar se este segmento é uma quebra de linha
     const isLineBreak = source === "\n"
 
     return {
       id: `segment-${index}`,
-      source: isLineBreak ? "" : source, // Não mostramos "\n" como texto fonte
+      source: isLineBreak ? "" : source,
       target: targetSegments[index] || "",
       isTranslated: Boolean(targetSegments[index]),
       isLineBreak,
+      originalIndex: index,
     }
   })
 }
