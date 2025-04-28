@@ -1,6 +1,5 @@
 "use client"
 
-import type React from "react"
 import { createContext, useContext, useEffect, useState, useCallback } from "react"
 
 type ShortcutAction =
@@ -106,10 +105,10 @@ const defaultShortcuts: ShortcutMapping[] = [
 
 const KeyboardShortcutsContext = createContext<KeyboardShortcutsContextType | undefined>(undefined)
 
-export function KeyboardShortcutsProvider({ children }: { children: React.ReactNode }) {
-  const [shortcuts] = useState<ShortcutMapping[]>(defaultShortcuts)
-  const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null)
-  const [shortcutHandlers, setShortcutHandlers] = useState<Record<ShortcutAction, (() => void) | null>>({
+export function KeyboardShortcutsProvider({ children }) {
+  const [shortcuts] = useState(defaultShortcuts)
+  const [activeSegmentId, setActiveSegmentId] = useState(null)
+  const [shortcutHandlers, setShortcutHandlers] = useState({
     nextSegment: null,
     prevSegment: null,
     nextUntranslated: null,
@@ -124,7 +123,7 @@ export function KeyboardShortcutsProvider({ children }: { children: React.ReactN
   const [isShortcutsModalOpen, setShortcutsModalOpen] = useState(false)
 
   // Memoize these functions to prevent them from changing on every render
-  const registerShortcutHandler = useCallback((action: ShortcutAction, handler: () => void) => {
+  const registerShortcutHandler = useCallback((action, handler) => {
     setShortcutHandlers((prev) => {
       // Only update if the handler is different
       if (prev[action] === handler) return prev
@@ -132,7 +131,7 @@ export function KeyboardShortcutsProvider({ children }: { children: React.ReactN
     })
   }, [])
 
-  const unregisterShortcutHandler = useCallback((action: ShortcutAction) => {
+  const unregisterShortcutHandler = useCallback((action) => {
     setShortcutHandlers((prev) => {
       // Only update if there was a handler
       if (prev[action] === null) return prev
@@ -141,7 +140,7 @@ export function KeyboardShortcutsProvider({ children }: { children: React.ReactN
   }, [])
 
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const handleKeyDown = (event) => {
       // Don't trigger shortcuts when typing in input fields
       if (
         event.target instanceof HTMLInputElement ||

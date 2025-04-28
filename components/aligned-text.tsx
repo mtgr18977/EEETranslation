@@ -4,8 +4,8 @@ import { useState, useEffect } from "react"
 import {
   type AlignableElement,
   identifyAlignableElements,
-  renderAlignedText,
   findMatchingElements,
+  getElementColor,
 } from "@/utils/alignment"
 
 interface AlignedTextProps {
@@ -42,14 +42,49 @@ export default function AlignedText({ sourceText, targetText, className = "" }: 
     }
   }
 
+  const renderAlignedText = (text: string, elements: AlignableElement[]) => {
+    if (!text || !elements.length) return text
+
+    const result = []
+    let lastIndex = 0
+
+    elements.forEach((element) => {
+      // Add text before this element
+      if (element.startIndex > lastIndex) {
+        result.push(text.substring(lastIndex, element.startIndex))
+      }
+
+      // Add the element with highlighting
+      const isHighlighted = element.id === highlightedElementId
+
+      result.push(
+        <span
+          key={element.id}
+          className={`cursor-pointer inline-block px-0.5 rounded ${getElementColor(element.type, isHighlighted)}`}
+          onMouseEnter={() => handleElementHover(element.id)}
+          onMouseLeave={() => handleElementHover("")}
+          data-element-id={element.id}
+          data-element-type={element.type}
+        >
+          {element.text}
+        </span>,
+      )
+
+      lastIndex = element.endIndex
+    })
+
+    // Add any remaining text
+    if (lastIndex < text.length) {
+      result.push(text.substring(lastIndex))
+    }
+
+    return result
+  }
+
   return (
     <div className={`grid grid-cols-2 gap-4 ${className}`}>
-      <div className="p-3 bg-red-100 rounded-md">
-        {renderAlignedText(sourceText, sourceElements, handleElementHover, highlightedElementId)}
-      </div>
-      <div className="p-3 bg-sky-100 rounded-md">
-        {renderAlignedText(targetText, targetElements, handleElementHover, highlightedElementId)}
-      </div>
+      <div className="p-3 bg-red-100 rounded-md">{renderAlignedText(sourceText, sourceElements)}</div>
+      <div className="p-3 bg-sky-100 rounded-md">{renderAlignedText(targetText, targetElements)}</div>
     </div>
   )
 }

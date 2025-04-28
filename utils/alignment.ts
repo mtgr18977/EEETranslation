@@ -1,7 +1,3 @@
-"use client"
-
-import type React from "react"
-
 /**
  * Types of elements that can be aligned between source and target text
  */
@@ -100,78 +96,6 @@ export function identifyAlignableElements(text: string): AlignableElement[] {
 }
 
 /**
- * Renders text with highlighted alignable elements
- */
-export function renderAlignedText(
-  text: string,
-  elements: AlignableElement[],
-  onElementHover?: (id: string) => void,
-  highlightedElementId?: string,
-): React.ReactNode {
-  if (!text || !elements.length) return text
-
-  const result: React.ReactNode[] = []
-  let lastIndex = 0
-
-  elements.forEach((element) => {
-    // Add text before this element
-    if (element.startIndex > lastIndex) {
-      result.push(text.substring(lastIndex, element.startIndex))
-    }
-
-    // Add the element with highlighting
-    const isHighlighted = element.id === highlightedElementId
-
-    result.push(
-      <span
-        key={element.id}
-        className={`cursor-pointer inline-block px-0.5 rounded ${getElementColor(element.type, isHighlighted)}`}
-        onMouseEnter={() => onElementHover && onElementHover(element.id)}
-        onMouseLeave={() => onElementHover && onElementHover("")}
-        data-element-id={element.id}
-        data-element-type={element.type}
-      >
-        {element.text}
-      </span>,
-    )
-
-    lastIndex = element.endIndex
-  })
-
-  // Add any remaining text
-  if (lastIndex < text.length) {
-    result.push(text.substring(lastIndex))
-  }
-
-  return result
-}
-
-/**
- * Get the background color for an element type
- */
-function getElementColor(type: AlignableElementType, isHighlighted: boolean): string {
-  const baseColors: Record<AlignableElementType, string> = {
-    number: "bg-blue-100",
-    tag: "bg-purple-100",
-    proper: "bg-yellow-100",
-    url: "bg-green-100",
-    email: "bg-teal-100",
-    date: "bg-orange-100",
-  }
-
-  const highlightColors: Record<AlignableElementType, string> = {
-    number: "bg-blue-300",
-    tag: "bg-purple-300",
-    proper: "bg-yellow-300",
-    url: "bg-green-300",
-    email: "bg-teal-300",
-    date: "bg-orange-300",
-  }
-
-  return isHighlighted ? highlightColors[type] : baseColors[type]
-}
-
-/**
  * Find matching elements between source and target text
  */
 export function findMatchingElements(
@@ -193,4 +117,29 @@ export function findMatchingElements(
   })
 
   return matches
+}
+
+/**
+ * Get the background color for an element type
+ */
+export function getElementColor(type: AlignableElementType, isHighlighted: boolean): string {
+  const baseColors: Record<AlignableElementType, string> = {
+    number: "bg-blue-100",
+    tag: "bg-purple-100",
+    proper: "bg-yellow-100",
+    url: "bg-green-100",
+    email: "bg-teal-100",
+    date: "bg-orange-100",
+  }
+
+  const highlightColors: Record<AlignableElementType, string> = {
+    number: "bg-blue-300",
+    tag: "bg-purple-300",
+    proper: "bg-yellow-300",
+    url: "bg-green-300",
+    email: "bg-teal-300",
+    date: "bg-orange-300",
+  }
+
+  return isHighlighted ? highlightColors[type] : baseColors[type]
 }
