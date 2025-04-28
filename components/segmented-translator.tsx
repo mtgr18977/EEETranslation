@@ -9,6 +9,7 @@ import { createSegmentPairs, joinSegments, type SegmentPair, splitIntoSegments }
 import { Loader2 } from "lucide-react"
 import { translateText } from "@/app/actions/translate"
 import { Progress } from "@/components/ui/progress"
+import AlignmentLegend from "./alignment-legend"
 
 interface SegmentedTranslatorProps {
   sourceText: string
@@ -126,6 +127,8 @@ export default function SegmentedTranslator({
               <SelectItem value="paragraph">Paragraph</SelectItem>
             </SelectContent>
           </Select>
+
+          <AlignmentLegend />
         </div>
 
         <div className="flex items-center gap-4">
