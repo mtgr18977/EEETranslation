@@ -64,11 +64,15 @@ export default function SegmentedTranslator({
     return () => clearTimeout(timeoutId)
   }, [sourceText, segmentType, targetText, activeSegmentId, setActiveSegmentId])
 
-  // Update target text when segments change
+  // Update target text when segments change - use debounce to avoid excessive updates
   useEffect(() => {
     if (segments.length > 0) {
-      const newTargetText = joinSegments(segments.map((s) => s.target).filter(Boolean))
-      onUpdateTargetText(newTargetText)
+      const timeoutId = setTimeout(() => {
+        const newTargetText = joinSegments(segments.map((s) => s.target).filter(Boolean))
+        onUpdateTargetText(newTargetText)
+      }, 500)
+
+      return () => clearTimeout(timeoutId)
     }
   }, [segments, onUpdateTargetText])
 
@@ -146,12 +150,19 @@ export default function SegmentedTranslator({
     }
   }, [registerShortcutHandler, unregisterShortcutHandler, shortcutHandlers])
 
+  // Memoize the update segment handler to prevent unnecessary re-renders
   const handleUpdateSegment = useCallback((id: string, translation: string) => {
-    setSegments((prev) =>
-      prev.map((segment) =>
+    setSegments((prev) => {
+      // Only update if the translation has changed
+      const segmentToUpdate = prev.find((segment) => segment.id === id)
+      if (segmentToUpdate && segmentToUpdate.target === translation) {
+        return prev
+      }
+
+      return prev.map((segment) =>
         segment.id === id ? { ...segment, target: translation, isTranslated: Boolean(translation) } : segment,
-      ),
-    )
+      )
+    })
   }, [])
 
   const handleTranslateAll = async () => {
@@ -205,21 +216,6 @@ export default function SegmentedTranslator({
   const translatedPercent =
     totalSegments > 0 ? Math.round(((totalSegments - untranslatedCount) / totalSegments) * 100) : 0
 
-  const renderSegments = () => {
-    return segments.map((segment, index) => (
-      <SegmentTranslator
-        key={segment.id}
-        segment={segment}
-        onUpdateSegment={handleUpdateSegment}
-        sourceLang={sourceLang}
-        targetLang={targetLang}
-        index={index}
-        isActive={segment.id === activeSegmentId}
-        onActivate={() => setActiveSegmentId(segment.id)}
-      />
-    ))
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -272,7 +268,20 @@ export default function SegmentedTranslator({
         </div>
       )}
 
-      <div className="space-y-2">{renderSegments()}</div>
+      <div className="space-y-2">
+        {segments.map((segment, index) => (
+          <SegmentTranslator
+            key={segment.id}
+            segment={segment}
+            onUpdateSegment={handleUpdateSegment}
+            sourceLang={sourceLang}
+            targetLang={targetLang}
+            index={index}
+            isActive={segment.id === activeSegmentId}
+            onActivate={() => setActiveSegmentId(segment.id)}
+          />
+        ))}
+      </div>
 
       <KeyboardShortcutsModal />
     </div>

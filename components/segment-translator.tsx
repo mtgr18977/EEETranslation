@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import type React from "react"
+
+import { useState, useEffect, useRef, useCallback, memo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -21,7 +23,8 @@ interface SegmentTranslatorProps {
   onActivate: () => void
 }
 
-export default function SegmentTranslator({
+// Use memo to prevent unnecessary re-renders
+const SegmentTranslator = memo(function SegmentTranslator({
   segment,
   onUpdateSegment,
   sourceLang,
@@ -34,10 +37,16 @@ export default function SegmentTranslator({
   const [isFocused, setIsFocused] = useState(false)
   const [suggestion, setSuggestion] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<"edit" | "align">("edit")
+  const [localTarget, setLocalTarget] = useState(segment.target)
   const targetTextareaRef = useRef<HTMLTextAreaElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
 
   const { registerShortcutHandler, unregisterShortcutHandler } = useKeyboardShortcuts()
+
+  // Update local state when segment changes
+  useEffect(() => {
+    setLocalTarget(segment.target)
+  }, [segment.target])
 
   // Memoize handlers to prevent them from changing on every render
   const handleTranslate = useCallback(async () => {
@@ -77,6 +86,22 @@ export default function SegmentTranslator({
       targetTextareaRef.current.focus()
     }
   }, [viewMode])
+
+  // Handle text input with debounce
+  const handleTextChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const newValue = e.target.value
+      setLocalTarget(newValue)
+
+      // Use a timeout to avoid excessive updates
+      const timeoutId = setTimeout(() => {
+        onUpdateSegment(segment.id, newValue)
+      }, 300)
+
+      return () => clearTimeout(timeoutId)
+    },
+    [segment.id, onUpdateSegment],
+  )
 
   // Register keyboard shortcuts when this segment is active
   useEffect(() => {
@@ -199,15 +224,19 @@ export default function SegmentTranslator({
                 ) : (
                   <Textarea
                     ref={targetTextareaRef}
-                    value={segment.target}
-                    onChange={(e) => onUpdateSegment(segment.id, e.target.value)}
+                    value={localTarget}
+                    onChange={handleTextChange}
                     placeholder="Enter translation..."
                     className="min-h-[60px] bg-sky-100"
                     onFocus={() => {
                       setIsFocused(true)
                       onActivate()
                     }}
-                    onBlur={() => setIsFocused(false)}
+                    onBlur={() => {
+                      setIsFocused(false)
+                      // Ensure final value is saved
+                      onUpdateSegment(segment.id, localTarget)
+                    }}
                   />
                 )}
               </div>
@@ -221,4 +250,6 @@ export default function SegmentTranslator({
       </CardContent>
     </Card>
   )
-}
+})
+
+export default SegmentTranslator
