@@ -34,6 +34,19 @@ export default function GlossaryModal({ isOpen, onClose }: GlossaryModalProps) {
       item.definition.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
+  const renderGlossaryItems = () => {
+    if (filteredItems.length === 0) {
+      return <div className="p-4 text-center text-muted-foreground">Nenhum termo encontrado</div>
+    }
+
+    return filteredItems.map((item, index) => (
+      <div key={`glossary-item-${index}`} className="grid grid-cols-2 p-2 border-t hover:bg-muted/50">
+        <div>{item.term}</div>
+        <div>{item.definition}</div>
+      </div>
+    ))
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px]">
@@ -56,18 +69,7 @@ export default function GlossaryModal({ isOpen, onClose }: GlossaryModalProps) {
             <div>Termo</div>
             <div>Definição</div>
           </div>
-          <div className="max-h-[300px] overflow-y-auto">
-            {filteredItems.length > 0 ? (
-              filteredItems.map((item, index) => (
-                <div key={index} className="grid grid-cols-2 p-2 border-t hover:bg-muted/50">
-                  <div>{item.term}</div>
-                  <div>{item.definition}</div>
-                </div>
-              ))
-            ) : (
-              <div className="p-4 text-center text-muted-foreground">Nenhum termo encontrado</div>
-            )}
-          </div>
+          <div className="max-h-[300px] overflow-y-auto">{renderGlossaryItems()}</div>
         </div>
 
         <div className="flex justify-end gap-2">

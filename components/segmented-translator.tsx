@@ -205,6 +205,21 @@ export default function SegmentedTranslator({
   const translatedPercent =
     totalSegments > 0 ? Math.round(((totalSegments - untranslatedCount) / totalSegments) * 100) : 0
 
+  const renderSegments = () => {
+    return segments.map((segment, index) => (
+      <SegmentTranslator
+        key={segment.id}
+        segment={segment}
+        onUpdateSegment={handleUpdateSegment}
+        sourceLang={sourceLang}
+        targetLang={targetLang}
+        index={index}
+        isActive={segment.id === activeSegmentId}
+        onActivate={() => setActiveSegmentId(segment.id)}
+      />
+    ))
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -257,20 +272,7 @@ export default function SegmentedTranslator({
         </div>
       )}
 
-      <div className="space-y-2">
-        {segments.map((segment, index) => (
-          <SegmentTranslator
-            key={segment.id}
-            segment={segment}
-            onUpdateSegment={handleUpdateSegment}
-            sourceLang={sourceLang}
-            targetLang={targetLang}
-            index={index}
-            isActive={segment.id === activeSegmentId}
-            onActivate={() => setActiveSegmentId(segment.id)}
-          />
-        ))}
-      </div>
+      <div className="space-y-2">{renderSegments()}</div>
 
       <KeyboardShortcutsModal />
     </div>

@@ -46,6 +46,16 @@ export function TranslationMemoryModal({ isOpen, onClose, onApply }: Translation
     }, 1000)
   }
 
+  const renderSegments = () => {
+    return segments.map((segment, index) => (
+      <div key={`tm-segment-${index}`} className="grid grid-cols-12 p-2 border-t hover:bg-muted/50">
+        <div className="col-span-5">{segment.source}</div>
+        <div className="col-span-5">{segment.target}</div>
+        <div className="col-span-2 text-right">{segment.similarity}%</div>
+      </div>
+    ))
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[700px]">
@@ -76,15 +86,7 @@ export function TranslationMemoryModal({ isOpen, onClose, onApply }: Translation
                 <div className="col-span-5">Tradução</div>
                 <div className="col-span-2 text-right">Similaridade</div>
               </div>
-              <div className="max-h-[300px] overflow-y-auto">
-                {segments.map((segment, index) => (
-                  <div key={index} className="grid grid-cols-12 p-2 border-t hover:bg-muted/50">
-                    <div className="col-span-5">{segment.source}</div>
-                    <div className="col-span-5">{segment.target}</div>
-                    <div className="col-span-2 text-right">{segment.similarity}%</div>
-                  </div>
-                ))}
-              </div>
+              <div className="max-h-[300px] overflow-y-auto">{renderSegments()}</div>
             </div>
           ) : (
             <div className="h-[300px] flex items-center justify-center text-muted-foreground">
