@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react"
 
 type ShortcutAction =
   | "nextSegment"
@@ -105,21 +105,19 @@ const KeyboardShortcutsContext = createContext<KeyboardShortcutsContextType | un
 
 export function KeyboardShortcutsProvider({ children }) {
   const [shortcuts] = useState(defaultShortcuts)
-  const [handlers, setHandlers] = useState({})
   const [isShortcutsModalOpen, setShortcutsModalOpen] = useState(false)
 
-  // Simple handler registration
-  function registerShortcutHandler(action, handler) {
-    setHandlers((prev) => ({ ...prev, [action]: handler }))
-  }
+  // Use a ref to store handlers to avoid re-renders
+  const handlersRef = useRef<Record<string, () => void>>({})
 
-  function unregisterShortcutHandler(action) {
-    setHandlers((prev) => {
-      const newHandlers = { ...prev }
-      delete newHandlers[action]
-      return newHandlers
-    })
-  }
+  // Memoize these functions to prevent them from changing on every render
+  const registerShortcutHandler = useCallback((action: ShortcutAction, handler: () => void) => {
+    handlersRef.current[action] = handler
+  }, [])
+
+  const unregisterShortcutHandler = useCallback((action: ShortcutAction) => {
+    delete handlersRef.current[action]
+  }, [])
 
   // Global keyboard event handler
   useEffect(() => {
@@ -151,7 +149,7 @@ export function KeyboardShortcutsProvider({ children }) {
           !!event.altKey === !!shortcut.altKey &&
           !!event.shiftKey === !!shortcut.shiftKey
         ) {
-          const handler = handlers[shortcut.action]
+          const handler = handlersRef.current[shortcut.action]
           if (handler) {
             handler()
             event.preventDefault()
@@ -165,21 +163,17 @@ export function KeyboardShortcutsProvider({ children }) {
     return () => {
       window.removeEventListener("keydown", handleKeyDown)
     }
-  }, [shortcuts, handlers])
+  }, [shortcuts]) // Only depend on shortcuts, not handlers
 
-  return (
-    <KeyboardShortcutsContext.Provider
-      value={{
-        shortcuts,
-        registerShortcutHandler,
-        unregisterShortcutHandler,
-        isShortcutsModalOpen,
-        setShortcutsModalOpen,
-      }}
-    >
-      {children}
-    </KeyboardShortcutsContext.Provider>
-  )
+  const contextValue = {
+    shortcuts,
+    registerShortcutHandler,
+    unregisterShortcutHandler,
+    isShortcutsModalOpen,
+    setShortcutsModalOpen,
+  }
+
+  return <KeyboardShortcutsContext.Provider value={contextValue}>{children}</KeyboardShortcutsContext.Provider>
 }
 
 export function useKeyboardShortcuts() {

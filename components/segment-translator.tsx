@@ -20,8 +20,6 @@ interface SegmentTranslatorProps {
   index: number
   isActive: boolean
   onActivate: () => void
-  registerShortcuts?: (handlers: any) => void
-  unregisterShortcuts?: () => void
 }
 
 export default function SegmentTranslator({
@@ -32,8 +30,6 @@ export default function SegmentTranslator({
   index,
   isActive,
   onActivate,
-  registerShortcuts,
-  unregisterShortcuts,
 }: SegmentTranslatorProps) {
   // Simple state management
   const [isTranslating, setIsTranslating] = useState(false)
@@ -53,57 +49,12 @@ export default function SegmentTranslator({
     }
   }, [segment.target, isActive])
 
-  // Save changes when component unmounts or becomes inactive
+  // Focus the textarea when segment becomes active
   useEffect(() => {
-    return () => {
-      if (hasChangesRef.current) {
-        onUpdateSegment(segment.id, localText)
-        hasChangesRef.current = false
-      }
+    if (isActive && viewMode === "edit" && textareaRef.current) {
+      textareaRef.current.focus()
     }
-  }, [])
-
-  // Register keyboard shortcuts if active
-  useEffect(() => {
-    if (isActive && registerShortcuts) {
-      const handlers = {
-        suggestTranslation: handleTranslate,
-        applySuggestion: handleApplySuggestion,
-        rejectSuggestion: handleRejectSuggestion,
-        toggleAlignView: handleToggleViewMode,
-        focusTargetText: handleFocusTargetText,
-      }
-
-      registerShortcuts(handlers)
-
-      // Focus the textarea when segment becomes active
-      if (viewMode === "edit" && textareaRef.current) {
-        textareaRef.current.focus()
-      }
-
-      // Scroll into view if needed
-      if (cardRef.current) {
-        const rect = cardRef.current.getBoundingClientRect()
-        const isVisible = rect.top >= 0 && rect.bottom <= (window.innerHeight || document.documentElement.clientHeight)
-
-        if (!isVisible) {
-          cardRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" })
-        }
-      }
-
-      return () => {
-        if (unregisterShortcuts) {
-          unregisterShortcuts()
-        }
-
-        // Save changes when segment becomes inactive
-        if (hasChangesRef.current) {
-          onUpdateSegment(segment.id, localText)
-          hasChangesRef.current = false
-        }
-      }
-    }
-  }, [isActive, registerShortcuts, unregisterShortcuts, viewMode])
+  }, [isActive, viewMode])
 
   // Simple handlers
   async function handleTranslate() {
@@ -136,20 +87,14 @@ export default function SegmentTranslator({
     setSuggestion(null)
   }
 
-  function handleToggleViewMode() {
+  function handleToggleViewMode(value: string) {
     // Save changes before switching views
     if (hasChangesRef.current && viewMode === "edit") {
       onUpdateSegment(segment.id, localText)
       hasChangesRef.current = false
     }
 
-    setViewMode((prev) => (prev === "edit" ? "align" : "edit"))
-  }
-
-  function handleFocusTargetText() {
-    if (viewMode === "edit" && textareaRef.current) {
-      textareaRef.current.focus()
-    }
+    setViewMode(value as "edit" | "align")
   }
 
   function handleTextChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -164,21 +109,19 @@ export default function SegmentTranslator({
     }
   }
 
+  function handleActivate() {
+    if (!isActive) {
+      // Save changes in current segment before activating new one
+      if (hasChangesRef.current) {
+        onUpdateSegment(segment.id, localText)
+        hasChangesRef.current = false
+      }
+      onActivate()
+    }
+  }
+
   return (
-    <Card
-      ref={cardRef}
-      className={`mb-4 ${isActive ? "border-primary border-2" : ""}`}
-      onClick={() => {
-        if (!isActive) {
-          // Save changes in current segment before activating new one
-          if (hasChangesRef.current) {
-            onUpdateSegment(segment.id, localText)
-            hasChangesRef.current = false
-          }
-          onActivate()
-        }
-      }}
-    >
+    <Card ref={cardRef} className={`mb-4 ${isActive ? "border-primary border-2" : ""}`} onClick={handleActivate}>
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
