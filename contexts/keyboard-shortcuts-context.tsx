@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react"
+import { createContext, useContext, useEffect, useState } from "react"
 
 type ShortcutAction =
   | "nextSegment"
@@ -26,8 +26,6 @@ interface ShortcutMapping {
 
 interface KeyboardShortcutsContextType {
   shortcuts: ShortcutMapping[]
-  activeSegmentId: string | null
-  setActiveSegmentId: (id: string | null) => void
   registerShortcutHandler: (action: ShortcutAction, handler: () => void) => void
   unregisterShortcutHandler: (action: ShortcutAction) => void
   isShortcutsModalOpen: boolean
@@ -107,40 +105,25 @@ const KeyboardShortcutsContext = createContext<KeyboardShortcutsContextType | un
 
 export function KeyboardShortcutsProvider({ children }) {
   const [shortcuts] = useState(defaultShortcuts)
-  const [activeSegmentId, setActiveSegmentId] = useState(null)
-  const [shortcutHandlers, setShortcutHandlers] = useState({
-    nextSegment: null,
-    prevSegment: null,
-    nextUntranslated: null,
-    suggestTranslation: null,
-    applySuggestion: null,
-    rejectSuggestion: null,
-    toggleAlignView: null,
-    focusTargetText: null,
-    saveTranslation: null,
-    showShortcuts: null,
-  })
+  const [handlers, setHandlers] = useState({})
   const [isShortcutsModalOpen, setShortcutsModalOpen] = useState(false)
 
-  // Memoize these functions to prevent them from changing on every render
-  const registerShortcutHandler = useCallback((action, handler) => {
-    setShortcutHandlers((prev) => {
-      // Only update if the handler is different
-      if (prev[action] === handler) return prev
-      return { ...prev, [action]: handler }
-    })
-  }, [])
+  // Simple handler registration
+  function registerShortcutHandler(action, handler) {
+    setHandlers((prev) => ({ ...prev, [action]: handler }))
+  }
 
-  const unregisterShortcutHandler = useCallback((action) => {
-    setShortcutHandlers((prev) => {
-      // Only update if there was a handler
-      if (prev[action] === null) return prev
-      return { ...prev, [action]: null }
+  function unregisterShortcutHandler(action) {
+    setHandlers((prev) => {
+      const newHandlers = { ...prev }
+      delete newHandlers[action]
+      return newHandlers
     })
-  }, [])
+  }
 
+  // Global keyboard event handler
   useEffect(() => {
-    const handleKeyDown = (event) => {
+    function handleKeyDown(event) {
       // Don't trigger shortcuts when typing in input fields
       if (
         event.target instanceof HTMLInputElement ||
@@ -168,7 +151,7 @@ export function KeyboardShortcutsProvider({ children }) {
           !!event.altKey === !!shortcut.altKey &&
           !!event.shiftKey === !!shortcut.shiftKey
         ) {
-          const handler = shortcutHandlers[shortcut.action]
+          const handler = handlers[shortcut.action]
           if (handler) {
             handler()
             event.preventDefault()
@@ -182,14 +165,12 @@ export function KeyboardShortcutsProvider({ children }) {
     return () => {
       window.removeEventListener("keydown", handleKeyDown)
     }
-  }, [shortcuts, shortcutHandlers])
+  }, [shortcuts, handlers])
 
   return (
     <KeyboardShortcutsContext.Provider
       value={{
         shortcuts,
-        activeSegmentId,
-        setActiveSegmentId,
         registerShortcutHandler,
         unregisterShortcutHandler,
         isShortcutsModalOpen,

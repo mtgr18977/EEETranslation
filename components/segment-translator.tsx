@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef, useCallback, memo } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -11,7 +11,6 @@ import { Loader2, Wand2, Check, X, AlignLeft, Keyboard } from "lucide-react"
 import type { SegmentPair } from "@/utils/segmentation"
 import AlignedText from "./aligned-text"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useKeyboardShortcuts } from "@/contexts/keyboard-shortcuts-context"
 
 interface SegmentTranslatorProps {
   segment: SegmentPair
@@ -21,10 +20,11 @@ interface SegmentTranslatorProps {
   index: number
   isActive: boolean
   onActivate: () => void
+  registerShortcuts?: (handlers: any) => void
+  unregisterShortcuts?: () => void
 }
 
-// Use memo to prevent unnecessary re-renders
-const SegmentTranslator = memo(function SegmentTranslator({
+export default function SegmentTranslator({
   segment,
   onUpdateSegment,
   sourceLang,
@@ -32,38 +32,81 @@ const SegmentTranslator = memo(function SegmentTranslator({
   index,
   isActive,
   onActivate,
+  registerShortcuts,
+  unregisterShortcuts,
 }: SegmentTranslatorProps) {
+  // Simple state management
   const [isTranslating, setIsTranslating] = useState(false)
-  const [isFocused, setIsFocused] = useState(false)
   const [suggestion, setSuggestion] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<"edit" | "align">("edit")
-  const [localTarget, setLocalTarget] = useState(segment.target)
-  const targetTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const [localText, setLocalText] = useState(segment.target)
+
+  // Refs
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
-  const isDirtyRef = useRef(false)
+  const hasChangesRef = useRef(false)
 
-  const { registerShortcutHandler, unregisterShortcutHandler } = useKeyboardShortcuts()
-
-  // Update local state when segment changes from external source
+  // Update local text when segment changes (but not during active editing)
   useEffect(() => {
-    if (!isFocused) {
-      setLocalTarget(segment.target)
-      isDirtyRef.current = false
+    if (!isActive || !hasChangesRef.current) {
+      setLocalText(segment.target)
     }
-  }, [segment.target, isFocused])
+  }, [segment.target, isActive])
 
-  // Save changes when component unmounts or when segment becomes inactive
+  // Save changes when component unmounts or becomes inactive
   useEffect(() => {
     return () => {
-      if (isDirtyRef.current) {
-        onUpdateSegment(segment.id, localTarget)
-        isDirtyRef.current = false
+      if (hasChangesRef.current) {
+        onUpdateSegment(segment.id, localText)
+        hasChangesRef.current = false
       }
     }
-  }, [segment.id, localTarget, onUpdateSegment])
+  }, [])
 
-  // Memoize handlers to prevent them from changing on every render
-  const handleTranslate = useCallback(async () => {
+  // Register keyboard shortcuts if active
+  useEffect(() => {
+    if (isActive && registerShortcuts) {
+      const handlers = {
+        suggestTranslation: handleTranslate,
+        applySuggestion: handleApplySuggestion,
+        rejectSuggestion: handleRejectSuggestion,
+        toggleAlignView: handleToggleViewMode,
+        focusTargetText: handleFocusTargetText,
+      }
+
+      registerShortcuts(handlers)
+
+      // Focus the textarea when segment becomes active
+      if (viewMode === "edit" && textareaRef.current) {
+        textareaRef.current.focus()
+      }
+
+      // Scroll into view if needed
+      if (cardRef.current) {
+        const rect = cardRef.current.getBoundingClientRect()
+        const isVisible = rect.top >= 0 && rect.bottom <= (window.innerHeight || document.documentElement.clientHeight)
+
+        if (!isVisible) {
+          cardRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" })
+        }
+      }
+
+      return () => {
+        if (unregisterShortcuts) {
+          unregisterShortcuts()
+        }
+
+        // Save changes when segment becomes inactive
+        if (hasChangesRef.current) {
+          onUpdateSegment(segment.id, localText)
+          hasChangesRef.current = false
+        }
+      }
+    }
+  }, [isActive, registerShortcuts, unregisterShortcuts, viewMode])
+
+  // Simple handlers
+  async function handleTranslate() {
     if (!segment.source.trim() || isTranslating) return
 
     setIsTranslating(true)
@@ -78,111 +121,60 @@ const SegmentTranslator = memo(function SegmentTranslator({
     } finally {
       setIsTranslating(false)
     }
-  }, [segment.source, isTranslating, sourceLang, targetLang])
+  }
 
-  const handleApplySuggestion = useCallback(() => {
+  function handleApplySuggestion() {
     if (suggestion) {
-      setLocalTarget(suggestion)
-      isDirtyRef.current = true
+      setLocalText(suggestion)
       onUpdateSegment(segment.id, suggestion)
       setSuggestion(null)
+      hasChangesRef.current = false
     }
-  }, [suggestion, onUpdateSegment, segment.id])
+  }
 
-  const handleRejectSuggestion = useCallback(() => {
+  function handleRejectSuggestion() {
     setSuggestion(null)
-  }, [])
+  }
 
-  const handleToggleViewMode = useCallback(() => {
-    // Save changes if needed before switching views
-    if (isDirtyRef.current && viewMode === "edit") {
-      onUpdateSegment(segment.id, localTarget)
-      isDirtyRef.current = false
+  function handleToggleViewMode() {
+    // Save changes before switching views
+    if (hasChangesRef.current && viewMode === "edit") {
+      onUpdateSegment(segment.id, localText)
+      hasChangesRef.current = false
     }
+
     setViewMode((prev) => (prev === "edit" ? "align" : "edit"))
-  }, [viewMode, segment.id, localTarget, onUpdateSegment])
+  }
 
-  const handleFocusTargetText = useCallback(() => {
-    if (viewMode === "edit" && targetTextareaRef.current) {
-      targetTextareaRef.current.focus()
+  function handleFocusTargetText() {
+    if (viewMode === "edit" && textareaRef.current) {
+      textareaRef.current.focus()
     }
-  }, [viewMode])
+  }
 
-  // Handle text input without updating parent immediately
-  const handleTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newValue = e.target.value
-    setLocalTarget(newValue)
-    isDirtyRef.current = true
-  }, [])
+  function handleTextChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    setLocalText(e.target.value)
+    hasChangesRef.current = true
+  }
 
-  // Save changes when focus is lost
-  const handleBlur = useCallback(() => {
-    setIsFocused(false)
-    if (isDirtyRef.current) {
-      onUpdateSegment(segment.id, localTarget)
-      isDirtyRef.current = false
+  function handleBlur() {
+    if (hasChangesRef.current) {
+      onUpdateSegment(segment.id, localText)
+      hasChangesRef.current = false
     }
-  }, [segment.id, localTarget, onUpdateSegment])
-
-  // Register keyboard shortcuts when this segment is active
-  useEffect(() => {
-    if (isActive) {
-      // Register handlers for this segment
-      registerShortcutHandler("suggestTranslation", handleTranslate)
-      registerShortcutHandler("applySuggestion", handleApplySuggestion)
-      registerShortcutHandler("rejectSuggestion", handleRejectSuggestion)
-      registerShortcutHandler("toggleAlignView", handleToggleViewMode)
-      registerShortcutHandler("focusTargetText", handleFocusTargetText)
-
-      // Scroll into view if needed
-      if (cardRef.current) {
-        const rect = cardRef.current.getBoundingClientRect()
-        const isVisible = rect.top >= 0 && rect.bottom <= (window.innerHeight || document.documentElement.clientHeight)
-
-        if (!isVisible) {
-          cardRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" })
-        }
-      }
-
-      // Cleanup function
-      return () => {
-        unregisterShortcutHandler("suggestTranslation")
-        unregisterShortcutHandler("applySuggestion")
-        unregisterShortcutHandler("rejectSuggestion")
-        unregisterShortcutHandler("toggleAlignView")
-        unregisterShortcutHandler("focusTargetText")
-
-        // Save any pending changes when segment becomes inactive
-        if (isDirtyRef.current) {
-          onUpdateSegment(segment.id, localTarget)
-          isDirtyRef.current = false
-        }
-      }
-    }
-    // No cleanup needed if not active
-    return undefined
-  }, [
-    isActive,
-    registerShortcutHandler,
-    unregisterShortcutHandler,
-    handleTranslate,
-    handleApplySuggestion,
-    handleRejectSuggestion,
-    handleToggleViewMode,
-    handleFocusTargetText,
-    segment.id,
-    localTarget,
-    onUpdateSegment,
-  ])
+  }
 
   return (
     <Card
       ref={cardRef}
-      className={`mb-4 ${isFocused ? "ring-2 ring-primary" : ""} ${isActive ? "border-primary border-2" : ""}`}
-      onClick={onActivate}
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+      className={`mb-4 ${isActive ? "border-primary border-2" : ""}`}
+      onClick={() => {
+        if (!isActive) {
+          // Save changes in current segment before activating new one
+          if (hasChangesRef.current) {
+            onUpdateSegment(segment.id, localText)
+            hasChangesRef.current = false
+          }
           onActivate()
         }
       }}
@@ -199,7 +191,7 @@ const SegmentTranslator = memo(function SegmentTranslator({
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "edit" | "align")}>
+            <Tabs value={viewMode} onValueChange={handleToggleViewMode}>
               <TabsList className="h-8">
                 <TabsTrigger value="edit" className="text-xs px-2 py-1">
                   Edit
@@ -253,16 +245,12 @@ const SegmentTranslator = memo(function SegmentTranslator({
                   </div>
                 ) : (
                   <Textarea
-                    ref={targetTextareaRef}
-                    value={localTarget}
+                    ref={textareaRef}
+                    value={localText}
                     onChange={handleTextChange}
+                    onBlur={handleBlur}
                     placeholder="Enter translation..."
                     className="min-h-[60px] bg-sky-100"
-                    onFocus={() => {
-                      setIsFocused(true)
-                      onActivate()
-                    }}
-                    onBlur={handleBlur}
                   />
                 )}
               </div>
@@ -276,6 +264,4 @@ const SegmentTranslator = memo(function SegmentTranslator({
       </CardContent>
     </Card>
   )
-})
-
-export default SegmentTranslator
+}

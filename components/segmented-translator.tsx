@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -28,25 +28,22 @@ export default function SegmentedTranslator({
   sourceLang,
   targetLang,
 }: SegmentedTranslatorProps) {
+  // Basic state
   const [segmentType, setSegmentType] = useState<"sentence" | "paragraph">("sentence")
   const [segments, setSegments] = useState<SegmentPair[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [isBatchTranslating, setIsBatchTranslating] = useState(false)
   const [translationProgress, setTranslationProgress] = useState(0)
-  const [pendingTargetUpdate, setPendingTargetUpdate] = useState(false)
-  const {
-    activeSegmentId,
-    setActiveSegmentId,
-    registerShortcutHandler,
-    unregisterShortcutHandler,
-    setShortcutsModalOpen,
-  } = useKeyboardShortcuts()
+  const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null)
+  const [shouldUpdateTarget, setShouldUpdateTarget] = useState(false)
+
+  // Get keyboard shortcuts context
+  const { registerShortcutHandler, unregisterShortcutHandler, setShortcutsModalOpen } = useKeyboardShortcuts()
 
   // Process text into segments when source text or segment type changes
   useEffect(() => {
     setIsProcessing(true)
 
-    // Use setTimeout to avoid blocking the UI
     const timeoutId = setTimeout(() => {
       const sourceSegments = splitIntoSegments(sourceText, segmentType)
       const targetSegments = targetText ? splitIntoSegments(targetText, segmentType) : []
@@ -63,58 +60,59 @@ export default function SegmentedTranslator({
     }, 0)
 
     return () => clearTimeout(timeoutId)
-  }, [sourceText, segmentType, targetText, activeSegmentId, setActiveSegmentId])
+  }, [sourceText, segmentType, targetText])
 
-  // Update target text when explicitly triggered
-  const updateTargetText = useCallback(() => {
-    if (segments.length > 0) {
-      const newTargetText = joinSegments(segments.map((s) => s.target).filter(Boolean))
-      onUpdateTargetText(newTargetText)
-      setPendingTargetUpdate(false)
-    }
-  }, [segments, onUpdateTargetText])
-
-  // Update target text when segments change, but only if we have pending updates
+  // Update target text when needed
   useEffect(() => {
-    if (pendingTargetUpdate) {
+    if (shouldUpdateTarget && segments.length > 0) {
       const timeoutId = setTimeout(() => {
-        updateTargetText()
+        const newTargetText = joinSegments(segments.map((s) => s.target).filter(Boolean))
+        onUpdateTargetText(newTargetText)
+        setShouldUpdateTarget(false)
       }, 500)
 
       return () => clearTimeout(timeoutId)
     }
-  }, [pendingTargetUpdate, updateTargetText])
+  }, [shouldUpdateTarget, segments, onUpdateTargetText])
 
-  // Memoize these functions to prevent them from changing on every render
+  // Handle segment update
+  const handleUpdateSegment = useCallback((id: string, translation: string) => {
+    setSegments((prev) => {
+      const segmentToUpdate = prev.find((s) => s.id === id)
+      if (segmentToUpdate && segmentToUpdate.target === translation) {
+        return prev
+      }
+
+      const newSegments = prev.map((s) =>
+        s.id === id ? { ...s, target: translation, isTranslated: Boolean(translation) } : s,
+      )
+
+      setShouldUpdateTarget(true)
+      return newSegments
+    })
+  }, [])
+
+  // Navigation handlers
   const handleNextSegment = useCallback(() => {
     if (!activeSegmentId || segments.length === 0) return
-
-    // Update target text before moving to next segment
-    updateTargetText()
 
     const currentIndex = segments.findIndex((s) => s.id === activeSegmentId)
     if (currentIndex < segments.length - 1) {
       setActiveSegmentId(segments[currentIndex + 1].id)
     }
-  }, [activeSegmentId, segments, setActiveSegmentId, updateTargetText])
+  }, [activeSegmentId, segments])
 
   const handlePrevSegment = useCallback(() => {
     if (!activeSegmentId || segments.length === 0) return
-
-    // Update target text before moving to previous segment
-    updateTargetText()
 
     const currentIndex = segments.findIndex((s) => s.id === activeSegmentId)
     if (currentIndex > 0) {
       setActiveSegmentId(segments[currentIndex - 1].id)
     }
-  }, [activeSegmentId, segments, setActiveSegmentId, updateTargetText])
+  }, [activeSegmentId, segments])
 
   const handleNextUntranslated = useCallback(() => {
     if (segments.length === 0) return
-
-    // Update target text before moving to next untranslated segment
-    updateTargetText()
 
     const currentIndex = activeSegmentId ? segments.findIndex((s) => s.id === activeSegmentId) : -1
 
@@ -135,33 +133,17 @@ export default function SegmentedTranslator({
         }
       }
     }
-  }, [activeSegmentId, segments, setActiveSegmentId, updateTargetText])
-
-  const handleSaveTranslation = useCallback(() => {
-    // Update target text before saving
-    updateTargetText()
-
-    // Simulate saving - in a real app this would call an API
-    alert("Translation saved!")
-  }, [updateTargetText])
-
-  // Use a stable reference for the shortcut handlers
-  const shortcutHandlers = useMemo(
-    () => ({
-      nextSegment: handleNextSegment,
-      prevSegment: handlePrevSegment,
-      nextUntranslated: handleNextUntranslated,
-      saveTranslation: handleSaveTranslation,
-    }),
-    [handleNextSegment, handlePrevSegment, handleNextUntranslated, handleSaveTranslation],
-  )
+  }, [activeSegmentId, segments])
 
   // Register global keyboard shortcuts
   useEffect(() => {
-    registerShortcutHandler("nextSegment", shortcutHandlers.nextSegment)
-    registerShortcutHandler("prevSegment", shortcutHandlers.prevSegment)
-    registerShortcutHandler("nextUntranslated", shortcutHandlers.nextUntranslated)
-    registerShortcutHandler("saveTranslation", shortcutHandlers.saveTranslation)
+    registerShortcutHandler("nextSegment", handleNextSegment)
+    registerShortcutHandler("prevSegment", handlePrevSegment)
+    registerShortcutHandler("nextUntranslated", handleNextUntranslated)
+    registerShortcutHandler("saveTranslation", () => {
+      setShouldUpdateTarget(true)
+      alert("Translation saved!")
+    })
 
     return () => {
       unregisterShortcutHandler("nextSegment")
@@ -169,26 +151,9 @@ export default function SegmentedTranslator({
       unregisterShortcutHandler("nextUntranslated")
       unregisterShortcutHandler("saveTranslation")
     }
-  }, [registerShortcutHandler, unregisterShortcutHandler, shortcutHandlers])
+  }, [registerShortcutHandler, unregisterShortcutHandler, handleNextSegment, handlePrevSegment, handleNextUntranslated])
 
-  // Memoize the update segment handler to prevent unnecessary re-renders
-  const handleUpdateSegment = useCallback((id: string, translation: string) => {
-    setSegments((prev) => {
-      // Only update if the translation has changed
-      const segmentToUpdate = prev.find((segment) => segment.id === id)
-      if (segmentToUpdate && segmentToUpdate.target === translation) {
-        return prev
-      }
-
-      // Mark that we have pending updates
-      setPendingTargetUpdate(true)
-
-      return prev.map((segment) =>
-        segment.id === id ? { ...segment, target: translation, isTranslated: Boolean(translation) } : segment,
-      )
-    })
-  }, [])
-
+  // Handle batch translation
   const handleTranslateAll = async () => {
     const untranslatedSegments = segments.filter((s) => !s.isTranslated && s.source.trim())
     if (untranslatedSegments.length === 0) return
@@ -197,7 +162,6 @@ export default function SegmentedTranslator({
     setTranslationProgress(0)
 
     try {
-      // Translate segments one by one to show progress
       for (let i = 0; i < untranslatedSegments.length; i++) {
         const segment = untranslatedSegments[i]
         const result = await translateText(segment.source, sourceLang, targetLang)
@@ -206,18 +170,36 @@ export default function SegmentedTranslator({
           handleUpdateSegment(segment.id, result.translation)
         }
 
-        // Update progress
         setTranslationProgress(Math.round(((i + 1) / untranslatedSegments.length) * 100))
       }
-
-      // Update target text after batch translation
-      updateTargetText()
     } catch (error) {
       console.error("Batch translation error:", error)
     } finally {
       setIsBatchTranslating(false)
+      setShouldUpdateTarget(true)
     }
   }
+
+  // Register segment-specific shortcuts
+  const registerSegmentShortcuts = useCallback(
+    (handlers: any) => {
+      if (handlers.suggestTranslation) registerShortcutHandler("suggestTranslation", handlers.suggestTranslation)
+      if (handlers.applySuggestion) registerShortcutHandler("applySuggestion", handlers.applySuggestion)
+      if (handlers.rejectSuggestion) registerShortcutHandler("rejectSuggestion", handlers.rejectSuggestion)
+      if (handlers.toggleAlignView) registerShortcutHandler("toggleAlignView", handlers.toggleAlignView)
+      if (handlers.focusTargetText) registerShortcutHandler("focusTargetText", handlers.focusTargetText)
+    },
+    [registerShortcutHandler],
+  )
+
+  // Unregister segment-specific shortcuts
+  const unregisterSegmentShortcuts = useCallback(() => {
+    unregisterShortcutHandler("suggestTranslation")
+    unregisterShortcutHandler("applySuggestion")
+    unregisterShortcutHandler("rejectSuggestion")
+    unregisterShortcutHandler("toggleAlignView")
+    unregisterShortcutHandler("focusTargetText")
+  }, [unregisterShortcutHandler])
 
   if (isProcessing) {
     return (
@@ -306,6 +288,8 @@ export default function SegmentedTranslator({
             index={index}
             isActive={segment.id === activeSegmentId}
             onActivate={() => setActiveSegmentId(segment.id)}
+            registerShortcuts={segment.id === activeSegmentId ? registerSegmentShortcuts : undefined}
+            unregisterShortcuts={segment.id === activeSegmentId ? unregisterSegmentShortcuts : undefined}
           />
         ))}
       </div>
