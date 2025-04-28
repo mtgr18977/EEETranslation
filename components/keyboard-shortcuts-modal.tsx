@@ -12,7 +12,7 @@ export default function KeyboardShortcutsModal() {
   const viewShortcuts = shortcuts.filter((s) => s.category === "view")
   const generalShortcuts = shortcuts.filter((s) => s.category === "general")
 
-  const formatShortcut = (shortcut: (typeof shortcuts)[0]) => {
+  const formatShortcut = (shortcut) => {
     const parts = []
     if (shortcut.ctrlKey) parts.push("Ctrl")
     if (shortcut.altKey) parts.push("Alt")
