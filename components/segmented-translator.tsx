@@ -14,6 +14,7 @@ import KeyboardShortcutsModal from "./keyboard-shortcuts-modal"
 import { runQualityChecks } from "@/utils/quality-checks"
 import { calculateReadability } from "@/utils/readability"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import type { GlossaryTerm } from "@/utils/glossary"
 
 interface SegmentedTranslatorProps {
   sourceText: string
@@ -21,6 +22,7 @@ interface SegmentedTranslatorProps {
   onUpdateTargetText: (text: string) => void
   sourceLang: string
   targetLang: string
+  glossaryTerms?: GlossaryTerm[]
 }
 
 export default function SegmentedTranslator({
@@ -29,6 +31,7 @@ export default function SegmentedTranslator({
   onUpdateTargetText,
   sourceLang,
   targetLang,
+  glossaryTerms = [],
 }: SegmentedTranslatorProps) {
   // Estado básico
   const [segments, setSegments] = useState<SegmentPair[]>([])
@@ -424,6 +427,7 @@ export default function SegmentedTranslator({
             index={index}
             isActive={segment.id === activeSegmentId}
             onActivate={() => setActiveSegmentId(segment.id)}
+            glossaryTerms={glossaryTerms}
           />
         ))}
       </div>

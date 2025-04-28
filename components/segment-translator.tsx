@@ -7,12 +7,16 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { translateText } from "@/app/actions/translate"
-import { Loader2, Wand2, Check, X, AlignLeft, Keyboard, AlertCircle, AlertTriangle } from "lucide-react"
+import { Loader2, Wand2, Check, X, AlignLeft, Keyboard, AlertCircle, AlertTriangle, Book } from "lucide-react"
 import type { SegmentPair } from "@/utils/segmentation"
 import AlignedText from "./aligned-text"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { runQualityChecks, type QualityIssue } from "@/utils/quality-checks"
 import QualityIssuesDisplay from "./quality-issues-display"
+import { type GlossaryTerm, findGlossaryTerms } from "@/utils/glossary"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+// Adicione esta importação no topo do arquivo
+import ExternalLink from "./external-link"
 
 interface SegmentTranslatorProps {
   segment: SegmentPair
@@ -22,6 +26,7 @@ interface SegmentTranslatorProps {
   index: number
   isActive: boolean
   onActivate: () => void
+  glossaryTerms?: GlossaryTerm[]
 }
 
 // Usar memo para evitar renderizações desnecessárias
@@ -34,6 +39,7 @@ const SegmentTranslator = memo(
     index,
     isActive,
     onActivate,
+    glossaryTerms = [],
   }: SegmentTranslatorProps) {
     // Estado local
     const [isTranslating, setIsTranslating] = useState(false)
@@ -41,6 +47,7 @@ const SegmentTranslator = memo(
     const [viewMode, setViewMode] = useState<"edit" | "align">("edit")
     const [localText, setLocalText] = useState(segment.target)
     const [qualityIssues, setQualityIssues] = useState<QualityIssue[]>([])
+    const [highlightedTerms, setHighlightedTerms] = useState<{ term: GlossaryTerm; index: number }[]>([])
 
     // Refs
     const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -63,6 +70,16 @@ const SegmentTranslator = memo(
         setQualityIssues([])
       }
     }, [segment.source, segment.target])
+
+    // Encontrar termos do glossário no texto fonte
+    useEffect(() => {
+      if (glossaryTerms.length > 0 && segment.source) {
+        const terms = findGlossaryTerms(segment.source, glossaryTerms)
+        setHighlightedTerms(terms)
+      } else {
+        setHighlightedTerms([])
+      }
+    }, [segment.source, glossaryTerms])
 
     // Focar o textarea quando o segmento fica ativo
     useEffect(() => {
@@ -131,9 +148,68 @@ const SegmentTranslator = memo(
       }
     }
 
+    // Renderizar texto fonte com termos do glossário destacados
+    const renderSourceText = () => {
+      if (!segment.source || highlightedTerms.length === 0) {
+        return <div className="p-3 bg-red-100 rounded-md min-h-[60px] whitespace-pre-wrap">{segment.source}</div>
+      }
+
+      const result = []
+      let lastIndex = 0
+
+      // Ordenar termos por índice para garantir a ordem correta
+      const sortedTerms = [...highlightedTerms].sort((a, b) => a.index - b.index)
+
+      for (const { term, index } of sortedTerms) {
+        // Adicionar texto antes do termo
+        if (index > lastIndex) {
+          result.push(segment.source.substring(lastIndex, index))
+        }
+
+        // Adicionar o termo destacado
+        const termText = segment.source.substring(index, index + term.term.length)
+        result.push(
+          <TooltipProvider key={`term-${index}`}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="bg-yellow-200 px-0.5 rounded cursor-help">{termText}</span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <div className="space-y-1">
+                  <p className="font-medium">{term.term}</p>
+                  <p className="text-xs">{term.definition}</p>
+                  {term.relatedUrl && (
+                    <a
+                      href={term.relatedUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:underline flex items-center"
+                    >
+                      {term.relatedName || term.relatedUrl}
+                      <ExternalLink className="h-3 w-3 ml-1" />
+                    </a>
+                  )}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>,
+        )
+
+        lastIndex = index + term.term.length
+      }
+
+      // Adicionar texto restante
+      if (lastIndex < segment.source.length) {
+        result.push(segment.source.substring(lastIndex))
+      }
+
+      return <div className="p-3 bg-red-100 rounded-md min-h-[60px] whitespace-pre-wrap">{result}</div>
+    }
+
     // Verificar problemas de qualidade
     const hasErrors = qualityIssues.some((issue) => issue.severity === "error")
     const hasWarnings = qualityIssues.some((issue) => issue.severity === "warning")
+    const hasGlossaryTerms = highlightedTerms.length > 0
 
     // Indicador de qualidade
     const QualityIndicator = () => {
@@ -182,6 +258,14 @@ const SegmentTranslator = memo(
                   <span>Shortcuts active</span>
                 </div>
               )}
+              {hasGlossaryTerms && (
+                <div className="flex items-center text-yellow-600 text-xs">
+                  <Book className="h-3 w-3 mr-1" />
+                  <span>
+                    {highlightedTerms.length} {highlightedTerms.length === 1 ? "termo" : "termos"}
+                  </span>
+                </div>
+              )}
               <QualityIndicator />
             </div>
             <div className="flex items-center gap-2">
@@ -220,7 +304,7 @@ const SegmentTranslator = memo(
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <div className="text-sm font-medium">Source</div>
-                  <div className="p-3 bg-red-100 rounded-md min-h-[60px] whitespace-pre-wrap">{segment.source}</div>
+                  {renderSourceText()}
                 </div>
 
                 <div className="space-y-2">
@@ -279,7 +363,8 @@ const SegmentTranslator = memo(
       prevProps.segment.id === nextProps.segment.id &&
       prevProps.segment.target === nextProps.segment.target &&
       prevProps.isActive === nextProps.isActive &&
-      prevProps.index === nextProps.index
+      prevProps.index === nextProps.index &&
+      prevProps.glossaryTerms === nextProps.glossaryTerms
     )
   },
 )

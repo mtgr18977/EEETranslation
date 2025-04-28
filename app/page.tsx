@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Navbar from "@/components/navbar"
 import InfoPanel from "@/components/info-panel"
 import GlossaryModal from "@/components/glossary-modal"
@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import SourceText from "@/components/source-text"
 import TargetText from "@/components/target-text"
 import { KeyboardShortcutsProvider } from "@/contexts/keyboard-shortcuts-context"
+import { type GlossaryTerm, loadGlossaryFromCSV } from "@/utils/glossary"
 
 export default function TranslationPlatform() {
   const [sourceText, setSourceText] = useState<string>("")
@@ -20,6 +21,28 @@ export default function TranslationPlatform() {
   const [sourceLang, setSourceLang] = useState<string>("en")
   const [targetLang, setTargetLang] = useState<string>("pt")
   const [viewMode, setViewMode] = useState<string>("segmented")
+  const [glossaryTerms, setGlossaryTerms] = useState<GlossaryTerm[]>([])
+  const [isLoadingGlossary, setIsLoadingGlossary] = useState(false)
+
+  // URL do glossário
+  const glossaryUrl =
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/knowledge-share-terms-2025-04-28-w7A52xOLZShJKyLh1KN2WzIPADca84.csv"
+
+  // Carregar glossário quando o componente montar
+  useEffect(() => {
+    setIsLoadingGlossary(true)
+    loadGlossaryFromCSV(glossaryUrl)
+      .then((terms) => {
+        setGlossaryTerms(terms)
+        console.log(`Loaded ${terms.length} glossary terms`)
+      })
+      .catch((err) => {
+        console.error("Failed to load glossary:", err)
+      })
+      .finally(() => {
+        setIsLoadingGlossary(false)
+      })
+  }, [])
 
   const handleFileUpload = (content: string) => {
     setSourceText(content)
@@ -74,6 +97,7 @@ export default function TranslationPlatform() {
                     onUpdateTargetText={setTargetText}
                     sourceLang={sourceLang}
                     targetLang={targetLang}
+                    glossaryTerms={glossaryTerms}
                   />
                 </TabsContent>
 
@@ -88,7 +112,9 @@ export default function TranslationPlatform() {
           <InfoPanel sourceText={sourceText} targetText={targetText} sourceLang={sourceLang} targetLang={targetLang} />
         </div>
 
-        {showGlossary && <GlossaryModal isOpen={showGlossary} onClose={() => setShowGlossary(false)} />}
+        {showGlossary && (
+          <GlossaryModal isOpen={showGlossary} onClose={() => setShowGlossary(false)} glossaryUrl={glossaryUrl} />
+        )}
 
         {showTM && (
           <TranslationMemoryModal
