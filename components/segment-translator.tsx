@@ -40,13 +40,27 @@ const SegmentTranslator = memo(function SegmentTranslator({
   const [localTarget, setLocalTarget] = useState(segment.target)
   const targetTextareaRef = useRef<HTMLTextAreaElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
+  const isDirtyRef = useRef(false)
 
   const { registerShortcutHandler, unregisterShortcutHandler } = useKeyboardShortcuts()
 
-  // Update local state when segment changes
+  // Update local state when segment changes from external source
   useEffect(() => {
-    setLocalTarget(segment.target)
-  }, [segment.target])
+    if (!isFocused) {
+      setLocalTarget(segment.target)
+      isDirtyRef.current = false
+    }
+  }, [segment.target, isFocused])
+
+  // Save changes when component unmounts or when segment becomes inactive
+  useEffect(() => {
+    return () => {
+      if (isDirtyRef.current) {
+        onUpdateSegment(segment.id, localTarget)
+        isDirtyRef.current = false
+      }
+    }
+  }, [segment.id, localTarget, onUpdateSegment])
 
   // Memoize handlers to prevent them from changing on every render
   const handleTranslate = useCallback(async () => {
@@ -68,6 +82,8 @@ const SegmentTranslator = memo(function SegmentTranslator({
 
   const handleApplySuggestion = useCallback(() => {
     if (suggestion) {
+      setLocalTarget(suggestion)
+      isDirtyRef.current = true
       onUpdateSegment(segment.id, suggestion)
       setSuggestion(null)
     }
@@ -78,8 +94,13 @@ const SegmentTranslator = memo(function SegmentTranslator({
   }, [])
 
   const handleToggleViewMode = useCallback(() => {
+    // Save changes if needed before switching views
+    if (isDirtyRef.current && viewMode === "edit") {
+      onUpdateSegment(segment.id, localTarget)
+      isDirtyRef.current = false
+    }
     setViewMode((prev) => (prev === "edit" ? "align" : "edit"))
-  }, [])
+  }, [viewMode, segment.id, localTarget, onUpdateSegment])
 
   const handleFocusTargetText = useCallback(() => {
     if (viewMode === "edit" && targetTextareaRef.current) {
@@ -87,21 +108,21 @@ const SegmentTranslator = memo(function SegmentTranslator({
     }
   }, [viewMode])
 
-  // Handle text input with debounce
-  const handleTextChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const newValue = e.target.value
-      setLocalTarget(newValue)
+  // Handle text input without updating parent immediately
+  const handleTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value
+    setLocalTarget(newValue)
+    isDirtyRef.current = true
+  }, [])
 
-      // Use a timeout to avoid excessive updates
-      const timeoutId = setTimeout(() => {
-        onUpdateSegment(segment.id, newValue)
-      }, 300)
-
-      return () => clearTimeout(timeoutId)
-    },
-    [segment.id, onUpdateSegment],
-  )
+  // Save changes when focus is lost
+  const handleBlur = useCallback(() => {
+    setIsFocused(false)
+    if (isDirtyRef.current) {
+      onUpdateSegment(segment.id, localTarget)
+      isDirtyRef.current = false
+    }
+  }, [segment.id, localTarget, onUpdateSegment])
 
   // Register keyboard shortcuts when this segment is active
   useEffect(() => {
@@ -130,6 +151,12 @@ const SegmentTranslator = memo(function SegmentTranslator({
         unregisterShortcutHandler("rejectSuggestion")
         unregisterShortcutHandler("toggleAlignView")
         unregisterShortcutHandler("focusTargetText")
+
+        // Save any pending changes when segment becomes inactive
+        if (isDirtyRef.current) {
+          onUpdateSegment(segment.id, localTarget)
+          isDirtyRef.current = false
+        }
       }
     }
     // No cleanup needed if not active
@@ -143,6 +170,9 @@ const SegmentTranslator = memo(function SegmentTranslator({
     handleRejectSuggestion,
     handleToggleViewMode,
     handleFocusTargetText,
+    segment.id,
+    localTarget,
+    onUpdateSegment,
   ])
 
   return (
@@ -232,11 +262,7 @@ const SegmentTranslator = memo(function SegmentTranslator({
                       setIsFocused(true)
                       onActivate()
                     }}
-                    onBlur={() => {
-                      setIsFocused(false)
-                      // Ensure final value is saved
-                      onUpdateSegment(segment.id, localTarget)
-                    }}
+                    onBlur={handleBlur}
                   />
                 )}
               </div>

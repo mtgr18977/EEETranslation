@@ -33,6 +33,7 @@ export default function SegmentedTranslator({
   const [isProcessing, setIsProcessing] = useState(false)
   const [isBatchTranslating, setIsBatchTranslating] = useState(false)
   const [translationProgress, setTranslationProgress] = useState(0)
+  const [pendingTargetUpdate, setPendingTargetUpdate] = useState(false)
   const {
     activeSegmentId,
     setActiveSegmentId,
@@ -64,39 +65,56 @@ export default function SegmentedTranslator({
     return () => clearTimeout(timeoutId)
   }, [sourceText, segmentType, targetText, activeSegmentId, setActiveSegmentId])
 
-  // Update target text when segments change - use debounce to avoid excessive updates
-  useEffect(() => {
+  // Update target text when explicitly triggered
+  const updateTargetText = useCallback(() => {
     if (segments.length > 0) {
+      const newTargetText = joinSegments(segments.map((s) => s.target).filter(Boolean))
+      onUpdateTargetText(newTargetText)
+      setPendingTargetUpdate(false)
+    }
+  }, [segments, onUpdateTargetText])
+
+  // Update target text when segments change, but only if we have pending updates
+  useEffect(() => {
+    if (pendingTargetUpdate) {
       const timeoutId = setTimeout(() => {
-        const newTargetText = joinSegments(segments.map((s) => s.target).filter(Boolean))
-        onUpdateTargetText(newTargetText)
+        updateTargetText()
       }, 500)
 
       return () => clearTimeout(timeoutId)
     }
-  }, [segments, onUpdateTargetText])
+  }, [pendingTargetUpdate, updateTargetText])
 
   // Memoize these functions to prevent them from changing on every render
   const handleNextSegment = useCallback(() => {
     if (!activeSegmentId || segments.length === 0) return
 
+    // Update target text before moving to next segment
+    updateTargetText()
+
     const currentIndex = segments.findIndex((s) => s.id === activeSegmentId)
     if (currentIndex < segments.length - 1) {
       setActiveSegmentId(segments[currentIndex + 1].id)
     }
-  }, [activeSegmentId, segments, setActiveSegmentId])
+  }, [activeSegmentId, segments, setActiveSegmentId, updateTargetText])
 
   const handlePrevSegment = useCallback(() => {
     if (!activeSegmentId || segments.length === 0) return
+
+    // Update target text before moving to previous segment
+    updateTargetText()
 
     const currentIndex = segments.findIndex((s) => s.id === activeSegmentId)
     if (currentIndex > 0) {
       setActiveSegmentId(segments[currentIndex - 1].id)
     }
-  }, [activeSegmentId, segments, setActiveSegmentId])
+  }, [activeSegmentId, segments, setActiveSegmentId, updateTargetText])
 
   const handleNextUntranslated = useCallback(() => {
     if (segments.length === 0) return
+
+    // Update target text before moving to next untranslated segment
+    updateTargetText()
 
     const currentIndex = activeSegmentId ? segments.findIndex((s) => s.id === activeSegmentId) : -1
 
@@ -117,12 +135,15 @@ export default function SegmentedTranslator({
         }
       }
     }
-  }, [activeSegmentId, segments, setActiveSegmentId])
+  }, [activeSegmentId, segments, setActiveSegmentId, updateTargetText])
 
   const handleSaveTranslation = useCallback(() => {
+    // Update target text before saving
+    updateTargetText()
+
     // Simulate saving - in a real app this would call an API
     alert("Translation saved!")
-  }, [])
+  }, [updateTargetText])
 
   // Use a stable reference for the shortcut handlers
   const shortcutHandlers = useMemo(
@@ -159,6 +180,9 @@ export default function SegmentedTranslator({
         return prev
       }
 
+      // Mark that we have pending updates
+      setPendingTargetUpdate(true)
+
       return prev.map((segment) =>
         segment.id === id ? { ...segment, target: translation, isTranslated: Boolean(translation) } : segment,
       )
@@ -185,6 +209,9 @@ export default function SegmentedTranslator({
         // Update progress
         setTranslationProgress(Math.round(((i + 1) / untranslatedSegments.length) * 100))
       }
+
+      // Update target text after batch translation
+      updateTargetText()
     } catch (error) {
       console.error("Batch translation error:", error)
     } finally {
