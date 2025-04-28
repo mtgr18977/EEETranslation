@@ -14,12 +14,12 @@ export default function TargetText({ text, onChange }: TargetTextProps) {
       <CardHeader className="p-4 pb-0">
         <CardTitle>Texto traduzido</CardTitle>
       </CardHeader>
-      <CardContent className="p-4 h-full">
+      <CardContent className="p-4 h-[calc(100%-60px)]">
         <Textarea
           value={text}
           onChange={(e) => onChange(e.target.value)}
           placeholder="Digite a tradução aqui..."
-          className="h-full min-h-[500px] resize-none border-none bg-transparent focus-visible:ring-0"
+          className="h-full resize-none border-none bg-transparent focus-visible:ring-0"
         />
       </CardContent>
     </Card>

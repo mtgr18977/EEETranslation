@@ -2,13 +2,14 @@
 
 import { useState } from "react"
 import Navbar from "@/components/navbar"
-import SourceText from "@/components/source-text"
-import TargetText from "@/components/target-text"
 import InfoPanel from "@/components/info-panel"
 import GlossaryModal from "@/components/glossary-modal"
 import { TranslationMemoryModal } from "@/components/translation-memory-modal"
-import TranslationSuggestions from "@/components/translation-suggestions"
 import LanguageSelector from "@/components/language-selector"
+import SegmentedTranslator from "@/components/segmented-translator"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import SourceText from "@/components/source-text"
+import TargetText from "@/components/target-text"
 
 export default function TranslationPlatform() {
   const [sourceText, setSourceText] = useState<string>("")
@@ -17,6 +18,7 @@ export default function TranslationPlatform() {
   const [showTM, setShowTM] = useState<boolean>(false)
   const [sourceLang, setSourceLang] = useState<string>("en")
   const [targetLang, setTargetLang] = useState<string>("pt")
+  const [viewMode, setViewMode] = useState<string>("segmented")
 
   const handleFileUpload = (content: string) => {
     setSourceText(content)
@@ -36,10 +38,6 @@ export default function TranslationPlatform() {
     document.body.removeChild(element)
   }
 
-  const handleApplySuggestion = (suggestion: string) => {
-    setTargetText(suggestion)
-  }
-
   return (
     <main className="flex flex-col h-screen">
       <Navbar
@@ -50,24 +48,39 @@ export default function TranslationPlatform() {
       />
 
       <div className="flex flex-1 p-4 gap-4 overflow-hidden">
-        <div className="flex flex-col flex-1">
-          <SourceText text={sourceText} onChange={setSourceText} />
-          <div className="mt-2">
-            <LanguageSelector value={sourceLang} onChange={setSourceLang} label="Source Language" />
-          </div>
-        </div>
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex gap-4">
+              <LanguageSelector value={sourceLang} onChange={setSourceLang} label="Source" />
+              <LanguageSelector value={targetLang} onChange={setTargetLang} label="Target" />
+            </div>
 
-        <div className="flex flex-col flex-1">
-          <TargetText text={targetText} onChange={setTargetText} />
-          <div className="mt-2">
-            <LanguageSelector value={targetLang} onChange={setTargetLang} label="Target Language" />
+            <Tabs value={viewMode} onValueChange={setViewMode} className="w-[400px]">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="segmented">Segmented View</TabsTrigger>
+                <TabsTrigger value="full">Full Text View</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
-          <TranslationSuggestions
-            sourceText={sourceText}
-            onApplySuggestion={handleApplySuggestion}
-            sourceLang={sourceLang}
-            targetLang={targetLang}
-          />
+
+          <div className="flex-1 overflow-auto">
+            <Tabs value={viewMode} className="h-full">
+              <TabsContent value="segmented" className="mt-0 h-full">
+                <SegmentedTranslator
+                  sourceText={sourceText}
+                  targetText={targetText}
+                  onUpdateTargetText={setTargetText}
+                  sourceLang={sourceLang}
+                  targetLang={targetLang}
+                />
+              </TabsContent>
+
+              <TabsContent value="full" className="mt-0 h-full flex gap-4">
+                <SourceText text={sourceText} onChange={setSourceText} />
+                <TargetText text={targetText} onChange={setTargetText} />
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
 
         <InfoPanel sourceText={sourceText} targetText={targetText} sourceLang={sourceLang} targetLang={targetLang} />
