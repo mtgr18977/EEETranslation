@@ -220,7 +220,8 @@ export default function SegmentedTranslator({
         )
 
         try {
-          const result = await translateText(segment.source, sourceLang, targetLang)
+          // Passar a URL da API do LibreTranslate para a função translateText
+          const result = await translateText(segment.source, sourceLang, targetLang, apiSettings?.libreApiUrl)
           console.log(`Resultado da tradução:`, result)
 
           if (result.success && result.translation) {

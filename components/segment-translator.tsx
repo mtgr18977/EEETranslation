@@ -27,6 +27,7 @@ interface SegmentTranslatorProps {
   onActivate: () => void
   glossaryTerms?: GlossaryTerm[]
   isFailedSegment?: boolean
+  apiSettings?: { libreApiUrl?: string }
 }
 
 // Usar memo para evitar renderizações desnecessárias
@@ -41,6 +42,7 @@ const SegmentTranslator = memo(
     onActivate,
     glossaryTerms = [],
     isFailedSegment = false,
+    apiSettings,
   }: SegmentTranslatorProps) {
     // Estado local
     const [isTranslating, setIsTranslating] = useState(false)
@@ -98,7 +100,10 @@ const SegmentTranslator = memo(
       setTranslationError(null)
 
       try {
-        const result = await translateText(segment.source, sourceLang, targetLang)
+        // Obter a URL da API do LibreTranslate das props
+        const libreApiUrl = apiSettings?.libreApiUrl
+
+        const result = await translateText(segment.source, sourceLang, targetLang, libreApiUrl)
 
         if (result.success && result.translation) {
           setSuggestion(result.translation)
@@ -272,7 +277,7 @@ const SegmentTranslator = memo(
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <div className="text-sm font-medium text-muted-foreground">Segment {index + 1}</div>
+              <div className="text-sm font-medium">Segment {index + 1}</div>
               {isActive && (
                 <div className="flex items-center text-xs text-muted-foreground">
                   <Keyboard className="h-3 w-3 mr-1" />
@@ -405,7 +410,8 @@ const SegmentTranslator = memo(
       prevProps.isActive === nextProps.isActive &&
       prevProps.index === nextProps.index &&
       prevProps.glossaryTerms === nextProps.glossaryTerms &&
-      prevProps.isFailedSegment === nextProps.isFailedSegment
+      prevProps.isFailedSegment === nextProps.isFailedSegment &&
+      prevProps.apiSettings === nextProps.apiSettings
     )
   },
 )

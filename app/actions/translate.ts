@@ -4,9 +4,6 @@
 const GOOGLE_API_KEY = "AIzaSyDXqtLBOcUi1iaQiBVu9HlQiCo5V3feIIQ"
 const GOOGLE_API_URL = "https://translation.googleapis.com/language/translate/v2"
 
-// Configuração da API LibreTranslate (fallback)
-const LIBRE_API_URL = "https://libretranslate.de/translate"
-
 // Configuração para tentativas
 const MAX_RETRIES = 2
 const RETRY_DELAY = 1000 // ms
@@ -14,7 +11,12 @@ const RETRY_DELAY = 1000 // ms
 // Função para esperar um tempo específico
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-export async function translateText(text: string, sourceLang = "en", targetLang = "pt") {
+export async function translateText(
+  text: string,
+  sourceLang = "en",
+  targetLang = "pt",
+  libreApiUrl = "https://pt.libretranslate.com/translate",
+) {
   if (!text.trim()) return { success: false, message: "No text provided" }
 
   console.log(`Traduzindo texto: "${text.substring(0, 30)}..." de ${sourceLang} para ${targetLang}`)
@@ -69,9 +71,9 @@ export async function translateText(text: string, sourceLang = "en", targetLang 
   }
 
   console.log(`Google Translate falhou após ${MAX_RETRIES + 1} tentativas. Erro: ${googleError}`)
-  console.log("Tentando LibreTranslate como fallback")
+  console.log("Tentando LibreTranslate como fallback via proxy")
 
-  // Tentativas com LibreTranslate
+  // Tentativas com LibreTranslate via proxy
   let libreError = null
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     if (attempt > 0) {
@@ -80,8 +82,10 @@ export async function translateText(text: string, sourceLang = "en", targetLang 
     }
 
     try {
-      console.log(`Fazendo requisição para LibreTranslate (tentativa ${attempt + 1}/${MAX_RETRIES + 1})`)
-      const response = await fetch(LIBRE_API_URL, {
+      console.log(`Fazendo requisição para o proxy do LibreTranslate (tentativa ${attempt + 1}/${MAX_RETRIES + 1})`)
+
+      // Usar nosso endpoint de proxy em vez de chamar diretamente o LibreTranslate
+      const response = await fetch("/api/translate-proxy", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -91,11 +95,14 @@ export async function translateText(text: string, sourceLang = "en", targetLang 
           source: sourceLang,
           target: targetLang,
           format: "text",
+          api_key: "",
+          alternatives: 0,
+          apiUrl: libreApiUrl, // Passar a URL da API para o proxy
         }),
       })
 
       const data = await response.json()
-      console.log(`Resposta do LibreTranslate (status ${response.status}):`, data)
+      console.log(`Resposta do proxy do LibreTranslate (status ${response.status}):`, data)
 
       if (response.ok) {
         const translation = data.translatedText

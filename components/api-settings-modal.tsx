@@ -22,7 +22,10 @@ export interface ApiSettings {
 }
 
 export default function ApiSettingsModal({ isOpen, onClose, onSaveSettings, currentSettings }: ApiSettingsModalProps) {
-  const [settings, setSettings] = useState<ApiSettings>(currentSettings)
+  const [settings, setSettings] = useState<ApiSettings>({
+    ...currentSettings,
+    libreApiUrl: currentSettings.libreApiUrl || "https://pt.libretranslate.com/translate",
+  })
   const [activeTab, setActiveTab] = useState("google")
   const [testStatus, setTestStatus] = useState<{
     isLoading: boolean
@@ -173,7 +176,7 @@ export default function ApiSettingsModal({ isOpen, onClose, onSaveSettings, curr
                 id="libre-api-url"
                 value={settings.libreApiUrl}
                 onChange={(e) => setSettings({ ...settings, libreApiUrl: e.target.value })}
-                placeholder="https://libretranslate.de/translate"
+                placeholder="https://pt.libretranslate.com/translate"
               />
               <p className="text-xs text-muted-foreground">
                 LibreTranslate é uma API de tradução de código aberto. Você pode usar o serviço público ou{" "}

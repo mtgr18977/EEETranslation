@@ -29,7 +29,7 @@ export default function TranslationPlatform() {
   const [isLoadingGlossary, setIsLoadingGlossary] = useState(false)
   const [apiSettings, setApiSettings] = useState<ApiSettings>({
     googleApiKey: "",
-    libreApiUrl: "https://libretranslate.de/translate",
+    libreApiUrl: "https://pt.libretranslate.com/translate",
     useLocalStorage: true,
   })
 
