@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import SegmentTranslator from "./segment-translator"
 import { createSegmentPairs, joinSegments, type SegmentPair, splitIntoSegments } from "@/utils/segmentation"
-import { Loader2, Keyboard, Save, FileDown } from "lucide-react"
+import { Loader2, Keyboard, Save, FileDown, AlertTriangle } from "lucide-react"
 import { translateText } from "@/app/actions/translate"
 import { Progress } from "@/components/ui/progress"
 import AlignmentLegend from "./alignment-legend"
@@ -42,6 +42,8 @@ export default function SegmentedTranslator({
   const [showQualityReport, setShowQualityReport] = useState(false)
   const [qualityReportData, setQualityReportData] = useState<any>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [translationError, setTranslationError] = useState<string | null>(null)
+  const [failedSegments, setFailedSegments] = useState<string[]>([])
 
   // Refs para controle de estado
   const sourceTextRef = useRef(sourceText)
@@ -196,6 +198,10 @@ export default function SegmentedTranslator({
 
     setIsBatchTranslating(true)
     setTranslationProgress(0)
+    setTranslationError(null)
+    setFailedSegments([])
+
+    const newFailedSegments: string[] = []
     console.log(`Iniciando tradução em lote de ${untranslatedSegments.length} segmentos`)
 
     try {
@@ -205,43 +211,57 @@ export default function SegmentedTranslator({
           `Traduzindo segmento ${i + 1}/${untranslatedSegments.length}: "${segment.source.substring(0, 30)}..."`,
         )
 
-        const result = await translateText(segment.source, sourceLang, targetLang)
-        console.log(`Resultado da tradução:`, result)
+        try {
+          const result = await translateText(segment.source, sourceLang, targetLang)
+          console.log(`Resultado da tradução:`, result)
 
-        if (result.success && result.translation) {
-          console.log(`Aplicando tradução ao segmento ${segment.id}:`, result.translation)
+          if (result.success && result.translation) {
+            console.log(`Aplicando tradução ao segmento ${segment.id}:`, result.translation)
 
-          // Atualizar o segmento diretamente no estado
-          setSegments((prev) => {
-            const newSegments = [...prev]
-            const segmentIndex = newSegments.findIndex((s) => s.id === segment.id)
+            // Atualizar o segmento diretamente no estado
+            setSegments((prev) => {
+              const newSegments = [...prev]
+              const segmentIndex = newSegments.findIndex((s) => s.id === segment.id)
 
-            if (segmentIndex !== -1) {
-              newSegments[segmentIndex] = {
-                ...newSegments[segmentIndex],
-                target: result.translation,
-                isTranslated: true,
+              if (segmentIndex !== -1) {
+                newSegments[segmentIndex] = {
+                  ...newSegments[segmentIndex],
+                  target: result.translation,
+                  isTranslated: true,
+                }
               }
-            }
 
-            // Atualizar também a referência
-            segmentsRef.current = newSegments
+              // Atualizar também a referência
+              segmentsRef.current = newSegments
 
-            return newSegments
-          })
-        } else {
-          console.error(`Falha ao traduzir segmento ${segment.id}:`, result.message || "Erro desconhecido")
+              return newSegments
+            })
+          } else {
+            console.error(`Falha ao traduzir segmento ${segment.id}:`, result.message || "Erro desconhecido")
+            newFailedSegments.push(segment.id)
+          }
+        } catch (error) {
+          console.error(`Erro ao traduzir segmento ${segment.id}:`, error)
+          newFailedSegments.push(segment.id)
         }
 
         setTranslationProgress(Math.round(((i + 1) / untranslatedSegments.length) * 100))
 
         // Pequeno atraso para evitar sobrecarga da API
-        await new Promise((resolve) => setTimeout(resolve, 100))
+        await new Promise((resolve) => setTimeout(resolve, 300))
+      }
+
+      if (newFailedSegments.length > 0) {
+        setFailedSegments(newFailedSegments)
+        setTranslationError(
+          `Não foi possível traduzir ${newFailedSegments.length} segmento(s). Tente traduzi-los manualmente.`,
+        )
       }
 
       console.log("Tradução em lote concluída")
     } catch (error) {
       console.error("Batch translation error:", error)
+      setTranslationError("Ocorreu um erro durante a tradução em lote. Por favor, tente novamente.")
     } finally {
       setIsBatchTranslating(false)
     }
@@ -441,6 +461,13 @@ export default function SegmentedTranslator({
         </div>
       )}
 
+      {translationError && (
+        <Alert className="bg-amber-50 border-amber-200">
+          <AlertTriangle className="h-4 w-4 text-amber-500 mr-2" />
+          <AlertDescription className="text-amber-800">{translationError}</AlertDescription>
+        </Alert>
+      )}
+
       {saveSuccess && (
         <Alert className="bg-green-50 border-green-200">
           <AlertDescription className="text-green-800">Tradução salva com sucesso!</AlertDescription>
@@ -459,6 +486,7 @@ export default function SegmentedTranslator({
             isActive={segment.id === activeSegmentId}
             onActivate={() => setActiveSegmentId(segment.id)}
             glossaryTerms={glossaryTerms}
+            isFailedSegment={failedSegments.includes(segment.id)}
           />
         ))}
       </div>

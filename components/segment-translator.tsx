@@ -15,7 +15,6 @@ import { runQualityChecks, type QualityIssue } from "@/utils/quality-checks"
 import QualityIssuesDisplay from "./quality-issues-display"
 import { type GlossaryTerm, findGlossaryTerms } from "@/utils/glossary"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-// Adicione esta importação no topo do arquivo
 import ExternalLink from "./external-link"
 
 interface SegmentTranslatorProps {
@@ -27,6 +26,7 @@ interface SegmentTranslatorProps {
   isActive: boolean
   onActivate: () => void
   glossaryTerms?: GlossaryTerm[]
+  isFailedSegment?: boolean
 }
 
 // Usar memo para evitar renderizações desnecessárias
@@ -40,6 +40,7 @@ const SegmentTranslator = memo(
     isActive,
     onActivate,
     glossaryTerms = [],
+    isFailedSegment = false,
   }: SegmentTranslatorProps) {
     // Estado local
     const [isTranslating, setIsTranslating] = useState(false)
@@ -48,6 +49,7 @@ const SegmentTranslator = memo(
     const [localText, setLocalText] = useState(segment.target)
     const [qualityIssues, setQualityIssues] = useState<QualityIssue[]>([])
     const [highlightedTerms, setHighlightedTerms] = useState<{ term: GlossaryTerm; index: number }[]>([])
+    const [translationError, setTranslationError] = useState<string | null>(null)
 
     // Refs
     const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -93,14 +95,19 @@ const SegmentTranslator = memo(
       if (!segment.source.trim() || isTranslating) return
 
       setIsTranslating(true)
+      setTranslationError(null)
+
       try {
         const result = await translateText(segment.source, sourceLang, targetLang)
 
         if (result.success && result.translation) {
           setSuggestion(result.translation)
+        } else {
+          setTranslationError(result.message || "Falha na tradução. Tente novamente.")
         }
       } catch (error) {
         console.error("Translation error:", error)
+        setTranslationError("Ocorreu um erro durante a tradução. Tente novamente.")
       } finally {
         setIsTranslating(false)
       }
@@ -244,7 +251,13 @@ const SegmentTranslator = memo(
     return (
       <Card
         className={`mb-4 ${isActive ? "border-primary border-2" : ""} ${
-          hasErrors ? "border-red-300" : hasWarnings ? "border-amber-300" : ""
+          isFailedSegment
+            ? "border-red-500 border-2"
+            : hasErrors
+              ? "border-red-300"
+              : hasWarnings
+                ? "border-amber-300"
+                : ""
         }`}
         onClick={handleActivate}
       >
@@ -256,6 +269,12 @@ const SegmentTranslator = memo(
                 <div className="flex items-center text-xs text-muted-foreground">
                   <Keyboard className="h-3 w-3 mr-1" />
                   <span>Shortcuts active</span>
+                </div>
+              )}
+              {isFailedSegment && (
+                <div className="flex items-center text-red-500 text-xs">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  <span>Falha na tradução automática</span>
                 </div>
               )}
               {hasGlossaryTerms && (
@@ -326,21 +345,32 @@ const SegmentTranslator = memo(
                       </div>
                     </div>
                   ) : (
-                    <Textarea
-                      ref={textareaRef}
-                      value={localText}
-                      onChange={handleTextChange}
-                      onBlur={handleBlur}
-                      placeholder="Enter translation..."
-                      className={`min-h-[60px] ${
-                        hasErrors
-                          ? "bg-red-50 border-red-300"
-                          : hasWarnings
-                            ? "bg-amber-50 border-amber-300"
-                            : "bg-sky-100"
-                      }`}
-                      rows={Math.max(3, segment.source.split("\n").length)}
-                    />
+                    <>
+                      <Textarea
+                        ref={textareaRef}
+                        value={localText}
+                        onChange={handleTextChange}
+                        onBlur={handleBlur}
+                        placeholder="Enter translation..."
+                        className={`min-h-[60px] ${
+                          isFailedSegment
+                            ? "bg-red-50 border-red-300"
+                            : hasErrors
+                              ? "bg-red-50 border-red-300"
+                              : hasWarnings
+                                ? "bg-amber-50 border-amber-300"
+                                : "bg-sky-100"
+                        }`}
+                        rows={Math.max(3, segment.source.split("\n").length)}
+                      />
+
+                      {translationError && (
+                        <div className="text-red-500 text-xs mt-1 flex items-center">
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          {translationError}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -364,7 +394,8 @@ const SegmentTranslator = memo(
       prevProps.segment.target === nextProps.segment.target &&
       prevProps.isActive === nextProps.isActive &&
       prevProps.index === nextProps.index &&
-      prevProps.glossaryTerms === nextProps.glossaryTerms
+      prevProps.glossaryTerms === nextProps.glossaryTerms &&
+      prevProps.isFailedSegment === nextProps.isFailedSegment
     )
   },
 )
