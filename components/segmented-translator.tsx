@@ -80,7 +80,8 @@ export default function SegmentedTranslator({
   useEffect(() => {
     if (shouldUpdateTargetRef.current && segments.length > 0) {
       const timeoutId = setTimeout(() => {
-        const newTargetText = joinSegments(segments.map((s) => s.target).filter(Boolean))
+        // Usar a função joinSegments melhorada para preservar quebras de linha
+        const newTargetText = joinSegments(segments.map((s) => s.target))
         onUpdateTargetText(newTargetText)
         shouldUpdateTargetRef.current = false
       }, 500)
@@ -106,9 +107,10 @@ export default function SegmentedTranslator({
       newSegments[segmentIndex] = {
         ...segmentToUpdate,
         target: translation,
-        isTranslated: Boolean(translation),
+        isTranslated: Boolean(translation.trim()),
       }
 
+      // Marcar para atualizar o texto alvo
       shouldUpdateTargetRef.current = true
       return newSegments
     })

@@ -137,6 +137,7 @@ export default function SegmentTranslator({
 
   function handleBlur() {
     if (hasChangesRef.current) {
+      // Preserve line breaks when updating the segment
       onUpdateSegment(segment.id, localText)
       hasChangesRef.current = false
     }
