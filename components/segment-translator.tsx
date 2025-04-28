@@ -57,12 +57,8 @@ export default function SegmentTranslator({
 
   // Run quality checks when segment or local text changes
   useEffect(() => {
-    if (segment.target.trim()) {
-      const issues = runQualityChecks(segment.source, segment.target)
-      setQualityIssues(issues)
-    } else {
-      setQualityIssues([])
-    }
+    const issues = segment.target.trim() ? runQualityChecks(segment.source, segment.target) : []
+    setQualityIssues(issues)
   }, [segment.source, segment.target])
 
   // Focus the textarea when segment becomes active
@@ -137,7 +133,7 @@ export default function SegmentTranslator({
 
   function handleBlur() {
     if (hasChangesRef.current) {
-      // Preserve line breaks when updating the segment
+      // Atualizar apenas o segmento atual, sem afetar outros
       onUpdateSegment(segment.id, localText)
       hasChangesRef.current = false
     }

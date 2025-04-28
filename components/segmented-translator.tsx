@@ -7,7 +7,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import SegmentTranslator from "./segment-translator"
-import { createSegmentPairs, joinSegments, type SegmentPair, splitIntoSegments } from "@/utils/segmentation"
+import {
+  createSegmentPairs,
+  joinSegments,
+  type SegmentPair,
+  splitIntoSegments,
+  ensureSegmentIntegrity,
+} from "@/utils/segmentation"
 import { Loader2, Keyboard, AlertCircle, AlertTriangle, CheckCircle, Filter } from "lucide-react"
 import { translateText } from "@/app/actions/translate"
 import { Progress } from "@/components/ui/progress"
@@ -63,11 +69,19 @@ export default function SegmentedTranslator({
       const targetSegments = targetText ? splitIntoSegments(targetText, segmentType) : []
 
       const newSegments = createSegmentPairs(sourceSegments, targetSegments)
-      setSegments(newSegments)
+
+      // Garantir a integridade dos segmentos
+      const cleanedSegments = ensureSegmentIntegrity(newSegments)
+
+      setSegments(cleanedSegments)
 
       // Set the first segment as active if none is active and there are segments
-      if (newSegments.length > 0 && !activeSegmentId) {
-        setActiveSegmentId(newSegments[0].id)
+      if (cleanedSegments.length > 0 && !activeSegmentId) {
+        // Encontrar o primeiro segmento que não é quebra de linha
+        const firstNonBreakSegment = cleanedSegments.find((s) => !s.isLineBreak)
+        if (firstNonBreakSegment) {
+          setActiveSegmentId(firstNonBreakSegment.id)
+        }
       }
 
       setIsProcessing(false)
@@ -80,8 +94,11 @@ export default function SegmentedTranslator({
   useEffect(() => {
     if (shouldUpdateTargetRef.current && segments.length > 0) {
       const timeoutId = setTimeout(() => {
+        // Garantir a integridade dos segmentos antes de juntar
+        const cleanedSegments = ensureSegmentIntegrity([...segments])
+
         // Usar a função joinSegments melhorada para preservar quebras de linha
-        const newTargetText = joinSegments(segments.map((s) => s.target))
+        const newTargetText = joinSegments(cleanedSegments.map((s) => s.target))
         onUpdateTargetText(newTargetText)
         shouldUpdateTargetRef.current = false
       }, 500)
@@ -98,6 +115,9 @@ export default function SegmentedTranslator({
       if (segmentIndex === -1) return prev
 
       const segmentToUpdate = prev[segmentIndex]
+
+      // Se for uma quebra de linha, não permitir alteração
+      if (segmentToUpdate.isLineBreak) return prev
 
       // If the translation hasn't changed, don't update
       if (segmentToUpdate.target === translation) return prev
@@ -122,7 +142,13 @@ export default function SegmentedTranslator({
 
     const currentIndex = segments.findIndex((s) => s.id === activeSegmentId)
     if (currentIndex < segments.length - 1) {
-      setActiveSegmentId(segments[currentIndex + 1].id)
+      // Encontrar o próximo segmento que não é quebra de linha
+      for (let i = currentIndex + 1; i < segments.length; i++) {
+        if (!segments[i].isLineBreak) {
+          setActiveSegmentId(segments[i].id)
+          break
+        }
+      }
     }
   }, [activeSegmentId, segments])
 
@@ -131,7 +157,13 @@ export default function SegmentedTranslator({
 
     const currentIndex = segments.findIndex((s) => s.id === activeSegmentId)
     if (currentIndex > 0) {
-      setActiveSegmentId(segments[currentIndex - 1].id)
+      // Encontrar o segmento anterior que não é quebra de linha
+      for (let i = currentIndex - 1; i >= 0; i--) {
+        if (!segments[i].isLineBreak) {
+          setActiveSegmentId(segments[i].id)
+          break
+        }
+      }
     }
   }, [activeSegmentId, segments])
 
@@ -140,9 +172,9 @@ export default function SegmentedTranslator({
 
     const currentIndex = activeSegmentId ? segments.findIndex((s) => s.id === activeSegmentId) : -1
 
-    // Find the next untranslated segment
+    // Find the next untranslated segment that isn't a line break
     for (let i = currentIndex + 1; i < segments.length; i++) {
-      if (!segments[i].isTranslated) {
+      if (!segments[i].isTranslated && !segments[i].isLineBreak) {
         setActiveSegmentId(segments[i].id)
         return
       }
@@ -151,7 +183,7 @@ export default function SegmentedTranslator({
     // If not found after current position, start from beginning
     if (currentIndex > 0) {
       for (let i = 0; i < currentIndex; i++) {
-        if (!segments[i].isTranslated) {
+        if (!segments[i].isTranslated && !segments[i].isLineBreak) {
           setActiveSegmentId(segments[i].id)
           return
         }
@@ -163,7 +195,7 @@ export default function SegmentedTranslator({
   const handleSaveTranslation = useCallback(() => {
     shouldUpdateTargetRef.current = true
     // Force an update to trigger the useEffect
-    setSegments((prev) => [...prev])
+    setSegments((prev) => ensureSegmentIntegrity([...prev]))
     alert("Translation saved!")
   }, [])
 
@@ -193,7 +225,7 @@ export default function SegmentedTranslator({
 
   // Handle batch translation
   const handleTranslateAll = async () => {
-    const untranslatedSegments = segments.filter((s) => !s.isTranslated && s.source.trim())
+    const untranslatedSegments = segments.filter((s) => !s.isTranslated && s.source.trim() && !s.isLineBreak)
     if (untranslatedSegments.length === 0) return
 
     setIsBatchTranslating(true)
@@ -216,15 +248,21 @@ export default function SegmentedTranslator({
       setIsBatchTranslating(false)
       shouldUpdateTargetRef.current = true
       // Force an update to trigger the useEffect
-      setSegments((prev) => [...prev])
+      setSegments((prev) => ensureSegmentIntegrity([...prev]))
     }
   }
 
   // Filter segments based on quality
   const filteredSegments = useMemo(() => {
-    if (qualityFilter === "all") return segments
+    if (qualityFilter === "all") {
+      // Mostrar todos os segmentos exceto quebras de linha
+      return segments.filter((s) => !s.isLineBreak)
+    }
 
     return segments.filter((segment) => {
+      // Nunca mostrar quebras de linha nos filtros
+      if (segment.isLineBreak) return false
+
       if (!segment.target.trim()) {
         return qualityFilter === "untranslated"
       }
@@ -265,8 +303,10 @@ export default function SegmentedTranslator({
     )
   }
 
-  const untranslatedCount = segments.filter((s) => !s.isTranslated && s.source.trim()).length
-  const totalSegments = segments.filter((s) => s.source.trim()).length
+  // Contar apenas segmentos reais (não quebras de linha)
+  const realSegments = segments.filter((s) => !s.isLineBreak)
+  const untranslatedCount = realSegments.filter((s) => !s.isTranslated && s.source.trim()).length
+  const totalSegments = realSegments.filter((s) => s.source.trim()).length
   const translatedPercent =
     totalSegments > 0 ? Math.round(((totalSegments - untranslatedCount) / totalSegments) * 100) : 0
 
@@ -277,7 +317,7 @@ export default function SegmentedTranslator({
     cleanCount: 0,
   }
 
-  segments.forEach((segment) => {
+  realSegments.forEach((segment) => {
     if (!segment.target.trim()) return
 
     const issues = runQualityChecks(segment.source, segment.target)
@@ -394,7 +434,7 @@ export default function SegmentedTranslator({
             onUpdateSegment={handleUpdateSegment}
             sourceLang={sourceLang}
             targetLang={targetLang}
-            index={segments.findIndex((s) => s.id === segment.id)} // Use the original index
+            index={segments.filter((s) => !s.isLineBreak).findIndex((s) => s.id === segment.id)} // Use the index among non-linebreak segments
             isActive={segment.id === activeSegmentId}
             onActivate={() => setActiveSegmentId(segment.id)}
           />
