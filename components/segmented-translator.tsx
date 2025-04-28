@@ -1,17 +1,20 @@
 "use client"
 
+import { useMemo } from "react"
+
 import { useState, useEffect, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import SegmentTranslator from "./segment-translator"
 import { createSegmentPairs, joinSegments, type SegmentPair, splitIntoSegments } from "@/utils/segmentation"
-import { Loader2, Keyboard } from "lucide-react"
+import { Loader2, Keyboard, AlertCircle, AlertTriangle, CheckCircle, Filter } from "lucide-react"
 import { translateText } from "@/app/actions/translate"
 import { Progress } from "@/components/ui/progress"
 import AlignmentLegend from "./alignment-legend"
 import { useKeyboardShortcuts } from "@/contexts/keyboard-shortcuts-context"
 import KeyboardShortcutsModal from "./keyboard-shortcuts-modal"
+import { runQualityChecks } from "@/utils/quality-checks"
 
 interface SegmentedTranslatorProps {
   sourceText: string
@@ -20,6 +23,8 @@ interface SegmentedTranslatorProps {
   sourceLang: string
   targetLang: string
 }
+
+type QualityFilter = "all" | "errors" | "warnings" | "clean" | "untranslated"
 
 export default function SegmentedTranslator({
   sourceText,
@@ -35,6 +40,7 @@ export default function SegmentedTranslator({
   const [isBatchTranslating, setIsBatchTranslating] = useState(false)
   const [translationProgress, setTranslationProgress] = useState(0)
   const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null)
+  const [qualityFilter, setQualityFilter] = useState<QualityFilter>("all")
 
   // Use a ref for tracking if we need to update the target text
   const shouldUpdateTargetRef = useRef(false)
@@ -212,6 +218,32 @@ export default function SegmentedTranslator({
     }
   }
 
+  // Filter segments based on quality
+  const filteredSegments = useMemo(() => {
+    if (qualityFilter === "all") return segments
+
+    return segments.filter((segment) => {
+      if (!segment.target.trim()) {
+        return qualityFilter === "untranslated"
+      }
+
+      const issues = runQualityChecks(segment.source, segment.target)
+
+      switch (qualityFilter) {
+        case "errors":
+          return issues.some((issue) => issue.severity === "error")
+        case "warnings":
+          return (
+            !issues.some((issue) => issue.severity === "error") && issues.some((issue) => issue.severity === "warning")
+          )
+        case "clean":
+          return issues.length === 0
+        default:
+          return true
+      }
+    })
+  }, [segments, qualityFilter])
+
   if (isProcessing) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -235,6 +267,27 @@ export default function SegmentedTranslator({
   const totalSegments = segments.filter((s) => s.source.trim()).length
   const translatedPercent =
     totalSegments > 0 ? Math.round(((totalSegments - untranslatedCount) / totalSegments) * 100) : 0
+
+  // Calculate quality statistics
+  const qualityStats = {
+    errorCount: 0,
+    warningCount: 0,
+    cleanCount: 0,
+  }
+
+  segments.forEach((segment) => {
+    if (!segment.target.trim()) return
+
+    const issues = runQualityChecks(segment.source, segment.target)
+
+    if (issues.some((issue) => issue.severity === "error")) {
+      qualityStats.errorCount++
+    } else if (issues.some((issue) => issue.severity === "warning")) {
+      qualityStats.warningCount++
+    } else {
+      qualityStats.cleanCount++
+    }
+  })
 
   return (
     <div className="space-y-4">
@@ -288,19 +341,70 @@ export default function SegmentedTranslator({
         </div>
       )}
 
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm">Filtrar por qualidade:</span>
+          <Select value={qualityFilter} onValueChange={(value) => setQualityFilter(value as QualityFilter)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os segmentos</SelectItem>
+              <SelectItem value="errors">
+                <div className="flex items-center">
+                  <AlertCircle className="h-4 w-4 mr-2 text-red-500" />
+                  Erros ({qualityStats.errorCount})
+                </div>
+              </SelectItem>
+              <SelectItem value="warnings">
+                <div className="flex items-center">
+                  <AlertTriangle className="h-4 w-4 mr-2 text-amber-500" />
+                  Avisos ({qualityStats.warningCount})
+                </div>
+              </SelectItem>
+              <SelectItem value="clean">
+                <div className="flex items-center">
+                  <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                  Sem problemas ({qualityStats.cleanCount})
+                </div>
+              </SelectItem>
+              <SelectItem value="untranslated">
+                <div className="flex items-center">
+                  <Loader2 className="h-4 w-4 mr-2 text-blue-500" />
+                  Não traduzidos ({untranslatedCount})
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="text-sm text-muted-foreground">
+          {filteredSegments.length} {filteredSegments.length === 1 ? "segmento" : "segmentos"} exibidos
+        </div>
+      </div>
+
       <div className="space-y-2">
-        {segments.map((segment, index) => (
+        {filteredSegments.map((segment, index) => (
           <SegmentTranslator
             key={segment.id}
             segment={segment}
             onUpdateSegment={handleUpdateSegment}
             sourceLang={sourceLang}
             targetLang={targetLang}
-            index={index}
+            index={segments.findIndex((s) => s.id === segment.id)} // Use the original index
             isActive={segment.id === activeSegmentId}
             onActivate={() => setActiveSegmentId(segment.id)}
           />
         ))}
+
+        {filteredSegments.length === 0 && (
+          <Card>
+            <CardContent className="p-6 text-center text-muted-foreground">
+              Nenhum segmento corresponde ao filtro selecionado
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <KeyboardShortcutsModal />

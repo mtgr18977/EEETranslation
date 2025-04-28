@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { translateText } from "@/app/actions/translate"
-import { Loader2, Wand2, Check, X, AlignLeft, Keyboard } from "lucide-react"
+import { Loader2, Wand2, Check, X, AlignLeft, Keyboard, AlertCircle, AlertTriangle } from "lucide-react"
 import type { SegmentPair } from "@/utils/segmentation"
 import AlignedText from "./aligned-text"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { runQualityChecks, type QualityIssue } from "@/utils/quality-checks"
+import QualityIssuesDisplay from "./quality-issues-display"
 
 interface SegmentTranslatorProps {
   segment: SegmentPair
@@ -36,6 +38,7 @@ export default function SegmentTranslator({
   const [suggestion, setSuggestion] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<"edit" | "align">("edit")
   const [localText, setLocalText] = useState(segment.target)
+  const [qualityIssues, setQualityIssues] = useState<QualityIssue[]>([])
 
   // Refs
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -51,6 +54,16 @@ export default function SegmentTranslator({
       previousSegmentIdRef.current = segment.id
     }
   }, [segment.id, segment.target])
+
+  // Run quality checks when segment or local text changes
+  useEffect(() => {
+    if (segment.target.trim()) {
+      const issues = runQualityChecks(segment.source, segment.target)
+      setQualityIssues(issues)
+    } else {
+      setQualityIssues([])
+    }
+  }, [segment.source, segment.target])
 
   // Focus the textarea when segment becomes active
   useEffect(() => {
@@ -83,6 +96,10 @@ export default function SegmentTranslator({
       onUpdateSegment(segment.id, suggestion)
       setSuggestion(null)
       hasChangesRef.current = false
+
+      // Run quality checks on the suggestion
+      const issues = runQualityChecks(segment.source, suggestion)
+      setQualityIssues(issues)
     }
   }
 
@@ -95,14 +112,27 @@ export default function SegmentTranslator({
     if (hasChangesRef.current && viewMode === "edit") {
       onUpdateSegment(segment.id, localText)
       hasChangesRef.current = false
+
+      // Run quality checks on the updated text
+      const issues = runQualityChecks(segment.source, localText)
+      setQualityIssues(issues)
     }
 
     setViewMode(value as "edit" | "align")
   }
 
   function handleTextChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    setLocalText(e.target.value)
+    const newText = e.target.value
+    setLocalText(newText)
     hasChangesRef.current = true
+
+    // Run quality checks as the user types (debounced in a real app)
+    if (newText.trim()) {
+      const issues = runQualityChecks(segment.source, newText)
+      setQualityIssues(issues)
+    } else {
+      setQualityIssues([])
+    }
   }
 
   function handleBlur() {
@@ -123,8 +153,48 @@ export default function SegmentTranslator({
     }
   }
 
+  // Determine if there are quality issues
+  const hasErrors = qualityIssues.some((issue) => issue.severity === "error")
+  const hasWarnings = qualityIssues.some((issue) => issue.severity === "warning")
+
+  // Quality indicator
+  const QualityIndicator = () => {
+    if (!segment.target.trim()) return null
+
+    if (hasErrors) {
+      return (
+        <div className="flex items-center text-red-500 text-xs">
+          <AlertCircle className="h-3 w-3 mr-1" />
+          <span>{qualityIssues.filter((i) => i.severity === "error").length} erros</span>
+        </div>
+      )
+    }
+
+    if (hasWarnings) {
+      return (
+        <div className="flex items-center text-amber-500 text-xs">
+          <AlertTriangle className="h-3 w-3 mr-1" />
+          <span>{qualityIssues.filter((i) => i.severity === "warning").length} avisos</span>
+        </div>
+      )
+    }
+
+    return (
+      <div className="flex items-center text-green-500 text-xs">
+        <Check className="h-3 w-3 mr-1" />
+        <span>OK</span>
+      </div>
+    )
+  }
+
   return (
-    <Card ref={cardRef} className={`mb-4 ${isActive ? "border-primary border-2" : ""}`} onClick={handleActivate}>
+    <Card
+      ref={cardRef}
+      className={`mb-4 ${isActive ? "border-primary border-2" : ""} ${
+        hasErrors ? "border-red-300" : hasWarnings ? "border-amber-300" : ""
+      }`}
+      onClick={handleActivate}
+    >
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -135,6 +205,7 @@ export default function SegmentTranslator({
                 <span>Shortcuts active</span>
               </div>
             )}
+            <QualityIndicator />
           </div>
           <div className="flex items-center gap-2">
             <Tabs value={viewMode} onValueChange={handleToggleViewMode}>
@@ -196,12 +267,21 @@ export default function SegmentTranslator({
                     onChange={handleTextChange}
                     onBlur={handleBlur}
                     placeholder="Enter translation..."
-                    className="min-h-[60px] bg-sky-100"
+                    className={`min-h-[60px] ${
+                      hasErrors
+                        ? "bg-red-50 border-red-300"
+                        : hasWarnings
+                          ? "bg-amber-50 border-amber-300"
+                          : "bg-sky-100"
+                    }`}
                     rows={Math.max(3, segment.source.split("\n").length)}
                   />
                 )}
               </div>
             </div>
+
+            {/* Display quality issues */}
+            {qualityIssues.length > 0 && <QualityIssuesDisplay issues={qualityIssues} />}
           </TabsContent>
 
           <TabsContent value="align" className="mt-0">
