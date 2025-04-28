@@ -10,7 +10,7 @@ interface SourceTextProps {
 
 export default function SourceText({ text, onChange }: SourceTextProps) {
   return (
-    <Card className="flex-1 bg-red-100 overflow-hidden">
+    <Card className="flex-1 bg-rose-50 overflow-hidden shadow-sm border-rose-100">
       <CardHeader className="p-4 pb-0">
         <CardTitle>Texto original</CardTitle>
       </CardHeader>

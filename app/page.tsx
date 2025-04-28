@@ -100,7 +100,7 @@ export default function TranslationPlatform() {
 
   return (
     <KeyboardShortcutsProvider>
-      <main className="flex flex-col h-screen">
+      <main className="flex flex-col h-screen bg-gray-50">
         <Navbar
           onUpload={handleFileUpload}
           onDownload={handleDownload}

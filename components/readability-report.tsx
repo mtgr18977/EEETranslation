@@ -96,18 +96,14 @@ interface ReadabilityScoreItemProps {
 }
 
 function ReadabilityScoreItem({ name, score, level, description, isInverted = false }: ReadabilityScoreItemProps) {
-  // Para o Flesch, valores mais altos são melhores (mais fácil de ler)
-  // Para os outros índices, valores mais baixos são melhores (mais fácil de ler)
-  const normalizedScore = isInverted ? score : Math.max(0, Math.min(100, 100 - (score * 100) / 18))
-
   return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-xs">
-        <span>{name}</span>
+    <div className="flex justify-between items-center text-xs py-1 border-b border-gray-100">
+      <span>{name}</span>
+      <div className="flex items-center gap-2">
+        <span className={`px-1.5 py-0.5 rounded-full text-white text-xs ${getReadabilityLevelColor(level)}`}>
+          {isInverted ? Math.round(score) : Math.round(score * 10) / 10}
+        </span>
         <span>{description}</span>
-      </div>
-      <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
-        <div className={`h-full ${getReadabilityLevelColor(level)}`} style={{ width: `${normalizedScore}%` }} />
       </div>
     </div>
   )

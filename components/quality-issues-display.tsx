@@ -43,7 +43,7 @@ export default function QualityIssuesDisplay({ issues }: QualityIssuesDisplayPro
         variant="outline"
         size="sm"
         onClick={() => setExpanded(!expanded)}
-        className={`w-full justify-between ${errorCount > 0 ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"}`}
+        className={`w-full justify-between ${errorCount > 0 ? "border-rose-200 bg-rose-50" : "border-amber-200 bg-amber-50"}`}
       >
         <div className="flex items-center">
           {errorCount > 0 ? (
@@ -67,7 +67,9 @@ export default function QualityIssuesDisplay({ issues }: QualityIssuesDisplayPro
               <div
                 key={`issue-${index}`}
                 className={`p-2 rounded-md text-sm ${
-                  issue.severity === "error" ? "bg-red-50 border border-red-200" : "bg-amber-50 border border-amber-200"
+                  issue.severity === "error"
+                    ? "bg-rose-50 border border-rose-200"
+                    : "bg-amber-50 border border-amber-200"
                 }`}
               >
                 <div className="flex items-start">

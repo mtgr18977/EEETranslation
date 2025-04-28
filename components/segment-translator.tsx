@@ -158,7 +158,11 @@ const SegmentTranslator = memo(
     // Renderizar texto fonte com termos do glossário destacados
     const renderSourceText = () => {
       if (!segment.source || highlightedTerms.length === 0) {
-        return <div className="p-3 bg-red-100 rounded-md min-h-[60px] whitespace-pre-wrap">{segment.source}</div>
+        return (
+          <div className="p-3 bg-rose-50 rounded-md min-h-[60px] whitespace-pre-wrap border border-rose-100">
+            {segment.source}
+          </div>
+        )
       }
 
       const result = []
@@ -210,7 +214,11 @@ const SegmentTranslator = memo(
         result.push(segment.source.substring(lastIndex))
       }
 
-      return <div className="p-3 bg-red-100 rounded-md min-h-[60px] whitespace-pre-wrap">{result}</div>
+      return (
+        <div className="p-3 bg-rose-50 rounded-md min-h-[60px] whitespace-pre-wrap border border-rose-100">
+          {result}
+        </div>
+      )
     }
 
     // Verificar problemas de qualidade
@@ -330,7 +338,9 @@ const SegmentTranslator = memo(
                   <div className="text-sm font-medium">Target</div>
                   {suggestion ? (
                     <div className="space-y-2">
-                      <div className="p-3 bg-green-100 rounded-md min-h-[60px] whitespace-pre-wrap">{suggestion}</div>
+                      <div className="p-3 bg-emerald-50 rounded-md min-h-[60px] whitespace-pre-wrap border border-emerald-100">
+                        {suggestion}
+                      </div>
                       <div className="flex justify-end gap-2">
                         <Button size="sm" variant="outline" onClick={handleRejectSuggestion}>
                           <X className="h-4 w-4 mr-1" />
@@ -359,7 +369,7 @@ const SegmentTranslator = memo(
                               ? "bg-red-50 border-red-300"
                               : hasWarnings
                                 ? "bg-amber-50 border-amber-300"
-                                : "bg-sky-100"
+                                : "bg-blue-50 border-blue-100"
                         }`}
                         rows={Math.max(3, segment.source.split("\n").length)}
                       />

@@ -77,7 +77,7 @@ export default function InfoPanel({ sourceText, targetText, sourceLang = "en", t
   }
 
   return (
-    <Card className="w-64 bg-amber-100 overflow-auto">
+    <Card className="w-64 bg-slate-50 border overflow-auto shadow-sm">
       <CardHeader className="p-4 pb-0">
         <CardTitle>Info</CardTitle>
       </CardHeader>

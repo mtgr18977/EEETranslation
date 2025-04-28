@@ -7,7 +7,6 @@ import SegmentTranslator from "./segment-translator"
 import { createSegmentPairs, joinSegments, type SegmentPair, splitIntoSegments } from "@/utils/segmentation"
 import { Loader2, Keyboard, Save, FileDown, AlertTriangle } from "lucide-react"
 import { translateText } from "@/app/actions/translate"
-import { Progress } from "@/components/ui/progress"
 import AlignmentLegend from "./alignment-legend"
 import { useKeyboardShortcuts } from "@/contexts/keyboard-shortcuts-context"
 import KeyboardShortcutsModal from "./keyboard-shortcuts-modal"
@@ -469,10 +468,7 @@ export default function SegmentedTranslator({
       </div>
 
       {isBatchTranslating && (
-        <div className="space-y-1">
-          <Progress value={translationProgress} className="h-2" />
-          <div className="text-xs text-right text-muted-foreground">{translationProgress}%</div>
-        </div>
+        <div className="text-sm text-right text-muted-foreground">Progresso: {translationProgress}%</div>
       )}
 
       {translationError && (
@@ -514,7 +510,7 @@ export default function SegmentedTranslator({
       </div>
 
       <div className="flex justify-center gap-4 pt-6 pb-2">
-        <Button size="lg" onClick={handleSaveTranslation} className="bg-green-600 hover:bg-green-700">
+        <Button size="lg" onClick={handleSaveTranslation} className="bg-teal-600 hover:bg-teal-700 text-white">
           <Save className="h-5 w-5 mr-2" />
           Pronto
         </Button>

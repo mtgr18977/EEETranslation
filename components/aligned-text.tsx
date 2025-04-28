@@ -83,8 +83,12 @@ export default function AlignedText({ sourceText, targetText, className = "" }: 
 
   return (
     <div className={`grid grid-cols-2 gap-4 ${className}`}>
-      <div className="p-3 bg-red-100 rounded-md">{renderAlignedText(sourceText, sourceElements)}</div>
-      <div className="p-3 bg-sky-100 rounded-md">{renderAlignedText(targetText, targetElements)}</div>
+      <div className="p-3 bg-rose-50 rounded-md border border-rose-100">
+        {renderAlignedText(sourceText, sourceElements)}
+      </div>
+      <div className="p-3 bg-blue-50 rounded-md border border-blue-100">
+        {renderAlignedText(targetText, targetElements)}
+      </div>
     </div>
   )
 }

@@ -10,7 +10,7 @@ interface TargetTextProps {
 
 export default function TargetText({ text, onChange }: TargetTextProps) {
   return (
-    <Card className="flex-1 bg-sky-100 overflow-hidden">
+    <Card className="flex-1 bg-blue-50 overflow-hidden shadow-sm border-blue-100">
       <CardHeader className="p-4 pb-0">
         <CardTitle>Texto traduzido</CardTitle>
       </CardHeader>
