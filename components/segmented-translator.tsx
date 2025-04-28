@@ -38,9 +38,15 @@ export default function SegmentedTranslator({
 
   // Use a ref for tracking if we need to update the target text
   const shouldUpdateTargetRef = useRef(false)
+  const segmentsRef = useRef<SegmentPair[]>([])
 
   // Get keyboard shortcuts context
   const { registerShortcutHandler, unregisterShortcutHandler, setShortcutsModalOpen } = useKeyboardShortcuts()
+
+  // Keep a reference to the current segments
+  useEffect(() => {
+    segmentsRef.current = segments
+  }, [segments])
 
   // Process text into segments when source text or segment type changes
   useEffect(() => {
@@ -80,14 +86,22 @@ export default function SegmentedTranslator({
   // Handle segment update
   const handleUpdateSegment = useCallback((id: string, translation: string) => {
     setSegments((prev) => {
-      const segmentToUpdate = prev.find((s) => s.id === id)
-      if (segmentToUpdate && segmentToUpdate.target === translation) {
-        return prev
-      }
+      // Find the segment to update
+      const segmentIndex = prev.findIndex((s) => s.id === id)
+      if (segmentIndex === -1) return prev
 
-      const newSegments = prev.map((s) =>
-        s.id === id ? { ...s, target: translation, isTranslated: Boolean(translation) } : s,
-      )
+      const segmentToUpdate = prev[segmentIndex]
+
+      // If the translation hasn't changed, don't update
+      if (segmentToUpdate.target === translation) return prev
+
+      // Create a new array with the updated segment
+      const newSegments = [...prev]
+      newSegments[segmentIndex] = {
+        ...segmentToUpdate,
+        target: translation,
+        isTranslated: Boolean(translation),
+      }
 
       shouldUpdateTargetRef.current = true
       return newSegments
@@ -197,9 +211,6 @@ export default function SegmentedTranslator({
       setSegments((prev) => [...prev])
     }
   }
-
-  // Create stable segment shortcut handlers
-  const segmentShortcutHandlers = useRef({})
 
   if (isProcessing) {
     return (

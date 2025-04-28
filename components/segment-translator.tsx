@@ -41,13 +41,16 @@ export default function SegmentTranslator({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
   const hasChangesRef = useRef(false)
+  const previousSegmentIdRef = useRef<string | null>(null)
 
   // Update local text when segment changes (but not during active editing)
   useEffect(() => {
-    if (!isActive || !hasChangesRef.current) {
+    // Only update local text if this is a different segment or we don't have unsaved changes
+    if (previousSegmentIdRef.current !== segment.id || !hasChangesRef.current) {
       setLocalText(segment.target)
+      previousSegmentIdRef.current = segment.id
     }
-  }, [segment.target, isActive])
+  }, [segment.id, segment.target])
 
   // Focus the textarea when segment becomes active
   useEffect(() => {
@@ -165,14 +168,14 @@ export default function SegmentTranslator({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <div className="text-sm font-medium">Source</div>
-                <div className="p-3 bg-red-100 rounded-md min-h-[60px]">{segment.source}</div>
+                <div className="p-3 bg-red-100 rounded-md min-h-[60px] whitespace-pre-wrap">{segment.source}</div>
               </div>
 
               <div className="space-y-2">
                 <div className="text-sm font-medium">Target</div>
                 {suggestion ? (
                   <div className="space-y-2">
-                    <div className="p-3 bg-green-100 rounded-md min-h-[60px]">{suggestion}</div>
+                    <div className="p-3 bg-green-100 rounded-md min-h-[60px] whitespace-pre-wrap">{suggestion}</div>
                     <div className="flex justify-end gap-2">
                       <Button size="sm" variant="outline" onClick={handleRejectSuggestion}>
                         <X className="h-4 w-4 mr-1" />
@@ -194,6 +197,7 @@ export default function SegmentTranslator({
                     onBlur={handleBlur}
                     placeholder="Enter translation..."
                     className="min-h-[60px] bg-sky-100"
+                    rows={Math.max(3, segment.source.split("\n").length)}
                   />
                 )}
               </div>

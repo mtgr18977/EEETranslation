@@ -22,6 +22,7 @@ export function splitIntoSegments(text: string, segmentType: "sentence" | "parag
  * Join segments back into a single text
  */
 export function joinSegments(segments: string[]): string {
+  // Preserve line breaks within segments
   return segments.join("\n\n")
 }
 
