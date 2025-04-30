@@ -14,7 +14,7 @@ import { runQualityChecks } from "@/utils/quality-checks"
 import { calculateReadability } from "@/utils/readability"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import type { GlossaryTerm } from "@/utils/glossary"
-import type { ApiSettings } from "./api-settings-modal"
+import type { ApiSettings } from "@/components/api-settings-modal"
 
 interface SegmentedTranslatorProps {
   sourceText: string
@@ -56,63 +56,6 @@ export default function SegmentedTranslator({
   // Obter contexto de atalhos de teclado
   const { registerShortcutHandler, unregisterShortcutHandler, setShortcutsModalOpen } = useKeyboardShortcuts()
 
-  // Manipular salvar tradução
-  const handleSaveTranslation = useCallback(() => {
-    try {
-      // Extrair texto alvo dos segmentos
-      const targetSegments = segmentsRef.current.map((s) => s.target)
-      const newTargetText = joinSegments(targetSegments)
-
-      // Atualizar o texto alvo
-      onUpdateTargetText(newTargetText)
-
-      // Gerar relatório de qualidade
-      const displayableSegments = segmentsRef.current.filter((s) => !s.isLineBreak)
-
-      const qualityIssues = displayableSegments.map((segment) => {
-        if (!segment.target.trim()) return { segment: segment.source, issues: [] }
-        return {
-          segment: segment.source,
-          issues: runQualityChecks(segment.source, segment.target),
-        }
-      })
-
-      // Calcular estatísticas de leiturabilidade
-      const sourceReadability = calculateReadability(sourceText, sourceLang)
-      const targetReadability = calculateReadability(newTargetText, targetLang)
-
-      // Preparar dados do relatório
-      const reportData = {
-        qualityIssues,
-        sourceReadability,
-        targetReadability,
-        stats: {
-          totalSegments: displayableSegments.length,
-          translatedSegments: displayableSegments.filter((s) => s.isTranslated).length,
-          errorCount: qualityIssues.reduce(
-            (count, item) => count + item.issues.filter((i) => i.severity === "error").length,
-            0,
-          ),
-          warningCount: qualityIssues.reduce(
-            (count, item) => count + item.issues.filter((i) => i.severity === "warning").length,
-            0,
-          ),
-        },
-      }
-
-      setQualityReportData(reportData)
-      setShowQualityReport(true)
-      setSaveSuccess(true)
-
-      // Limpar mensagem de sucesso após 3 segundos
-      setTimeout(() => {
-        setSaveSuccess(false)
-      }, 3000)
-    } catch (error) {
-      console.error("Error saving translation:", error)
-    }
-  }, [onUpdateTargetText, sourceText, sourceLang, targetLang])
-
   // Processar texto em segmentos quando o texto fonte muda
   useEffect(() => {
     // Pular se nada mudou
@@ -131,10 +74,6 @@ export default function SegmentedTranslator({
         const targetSegments = targetText ? splitIntoSegments(targetText, "sentence") : []
 
         const newSegments = createSegmentPairs(sourceSegments, targetSegments)
-
-        // Filtrar quebras  : []
-
-        //const newSegments = createSegmentPairs(sourceSegments, targetSegments)
 
         // Filtrar quebras de linha para exibição
         const displayableSegments = newSegments.filter((s) => !s.isLineBreak)
@@ -239,6 +178,63 @@ export default function SegmentedTranslator({
       }
     }
   }, [activeSegmentId, segments])
+
+  // Função para salvar a tradução e gerar relatório
+  const handleSaveTranslation = useCallback(() => {
+    try {
+      // Extrair texto alvo dos segmentos
+      const targetSegments = segmentsRef.current.map((s) => s.target)
+      const newTargetText = joinSegments(targetSegments)
+
+      // Atualizar o texto alvo
+      onUpdateTargetText(newTargetText)
+
+      // Gerar relatório de qualidade
+      const displayableSegments = segmentsRef.current.filter((s) => !s.isLineBreak)
+
+      const qualityIssues = displayableSegments.map((segment) => {
+        if (!segment.target.trim()) return { segment: segment.source, issues: [] }
+        return {
+          segment: segment.source,
+          issues: runQualityChecks(segment.source, segment.target),
+        }
+      })
+
+      // Calcular estatísticas de leiturabilidade
+      const sourceReadability = calculateReadability(sourceText, sourceLang)
+      const targetReadability = calculateReadability(newTargetText, targetLang)
+
+      // Preparar dados do relatório
+      const reportData = {
+        qualityIssues,
+        sourceReadability,
+        targetReadability,
+        stats: {
+          totalSegments: displayableSegments.length,
+          translatedSegments: displayableSegments.filter((s) => s.isTranslated).length,
+          errorCount: qualityIssues.reduce(
+            (count, item) => count + item.issues.filter((i) => i.severity === "error").length,
+            0,
+          ),
+          warningCount: qualityIssues.reduce(
+            (count, item) => count + item.issues.filter((i) => i.severity === "warning").length,
+            0,
+          ),
+        },
+      }
+
+      setQualityReportData(reportData)
+      setShowQualityReport(true)
+      setSaveSuccess(true)
+
+      // Limpar mensagem de sucesso após 3 segundos
+      setTimeout(() => {
+        setSaveSuccess(false)
+      }, 3000)
+    } catch (error) {
+      console.error("Error saving translation:", error)
+    }
+  }, [onUpdateTargetText, sourceText, sourceLang, targetLang])
 
   // Registrar atalhos de teclado globais
   useEffect(() => {
@@ -515,6 +511,7 @@ export default function SegmentedTranslator({
             onActivate={() => setActiveSegmentId(segment.id)}
             glossaryTerms={glossaryTerms}
             isFailedSegment={failedSegments.includes(segment.id)}
+            apiSettings={apiSettings}
           />
         ))}
       </div>

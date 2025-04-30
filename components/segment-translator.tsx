@@ -16,6 +16,7 @@ import QualityIssuesDisplay from "./quality-issues-display"
 import { type GlossaryTerm, findGlossaryTerms } from "@/utils/glossary"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import ExternalLink from "./external-link"
+import { useKeyboardShortcuts } from "@/contexts/keyboard-shortcuts-context"
 
 interface SegmentTranslatorProps {
   segment: SegmentPair
@@ -28,8 +29,6 @@ interface SegmentTranslatorProps {
   glossaryTerms?: GlossaryTerm[]
   isFailedSegment?: boolean
   apiSettings?: { libreApiUrl?: string }
-  registerShortcutHandler: (key: string, handler: () => void) => void
-  unregisterShortcutHandler: (key: string) => void
 }
 
 // Usar memo para evitar renderizações desnecessárias
@@ -45,8 +44,6 @@ const SegmentTranslator = memo(
     glossaryTerms = [],
     isFailedSegment = false,
     apiSettings,
-    registerShortcutHandler,
-    unregisterShortcutHandler,
   }: SegmentTranslatorProps) {
     // Estado local
     const [isTranslating, setIsTranslating] = useState(false)
@@ -56,6 +53,9 @@ const SegmentTranslator = memo(
     const [qualityIssues, setQualityIssues] = useState<QualityIssue[]>([])
     const [highlightedTerms, setHighlightedTerms] = useState<{ term: GlossaryTerm; index: number }[]>([])
     const [translationError, setTranslationError] = useState<string | null>(null)
+
+    // Obter contexto de atalhos de teclado
+    const { registerShortcutHandler, unregisterShortcutHandler } = useKeyboardShortcuts()
 
     // Refs
     const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -164,6 +164,30 @@ const SegmentTranslator = memo(
       }
     }
 
+    // Registrar atalhos de teclado específicos para este segmento quando estiver ativo
+    useEffect(() => {
+      if (isActive) {
+        // Registrar atalhos específicos para este segmento
+        if (suggestion) {
+          registerShortcutHandler("applySuggestion", handleApplySuggestion)
+          registerShortcutHandler("rejectSuggestion", handleRejectSuggestion)
+        }
+
+        registerShortcutHandler("suggestTranslation", handleTranslate)
+        registerShortcutHandler("toggleAlignView", () => handleToggleViewMode(viewMode === "edit" ? "align" : "edit"))
+
+        return () => {
+          // Limpar os handlers quando o componente for desmontado ou não estiver mais ativo
+          if (suggestion) {
+            unregisterShortcutHandler("applySuggestion")
+            unregisterShortcutHandler("rejectSuggestion")
+          }
+          unregisterShortcutHandler("suggestTranslation")
+          unregisterShortcutHandler("toggleAlignView")
+        }
+      }
+    }, [isActive, suggestion, registerShortcutHandler, unregisterShortcutHandler, viewMode])
+
     // Renderizar texto fonte com termos do glossário destacados
     const renderSourceText = () => {
       if (!segment.source || highlightedTerms.length === 0) {
@@ -264,30 +288,6 @@ const SegmentTranslator = memo(
         </div>
       )
     }
-
-    // Registrar atalhos de teclado específicos para este segmento quando estiver ativo
-    useEffect(() => {
-      if (isActive) {
-        // Registrar atalhos específicos para este segmento
-        if (suggestion) {
-          registerShortcutHandler("applySuggestion", handleApplySuggestion)
-          registerShortcutHandler("rejectSuggestion", handleRejectSuggestion)
-        }
-
-        registerShortcutHandler("suggestTranslation", handleTranslate)
-        registerShortcutHandler("toggleAlignView", () => handleToggleViewMode(viewMode === "edit" ? "align" : "edit"))
-
-        return () => {
-          // Limpar os handlers quando o componente for desmontado ou não estiver mais ativo
-          if (suggestion) {
-            unregisterShortcutHandler("applySuggestion")
-            unregisterShortcutHandler("rejectSuggestion")
-          }
-          unregisterShortcutHandler("suggestTranslation")
-          unregisterShortcutHandler("toggleAlignView")
-        }
-      }
-    }, [isActive, suggestion, registerShortcutHandler, unregisterShortcutHandler, viewMode])
 
     return (
       <Card
@@ -439,9 +439,7 @@ const SegmentTranslator = memo(
       prevProps.index === nextProps.index &&
       prevProps.glossaryTerms === nextProps.glossaryTerms &&
       prevProps.isFailedSegment === nextProps.isFailedSegment &&
-      prevProps.apiSettings === nextProps.apiSettings &&
-      prevProps.registerShortcutHandler === nextProps.registerShortcutHandler &&
-      prevProps.unregisterShortcutHandler === nextProps.unregisterShortcutHandler
+      prevProps.apiSettings === nextProps.apiSettings
     )
   },
 )
