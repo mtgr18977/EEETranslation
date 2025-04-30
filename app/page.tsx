@@ -5,8 +5,8 @@ import Navbar from "@/components/navbar"
 import InfoPanel from "@/components/info-panel"
 import GlossaryModal from "@/components/glossary-modal"
 import { TranslationMemoryModal } from "@/components/translation-memory-modal"
-import LanguageSelector from "@/components/language-selector"
-import SegmentedTranslator from "@/components/segmented-translator"
+import LanguageSelector from "@/components/translation/language-selector"
+import SegmentedTranslator from "@/components/translation/segmented-translator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import SourceText from "@/components/source-text"
 import TargetText from "@/components/target-text"
@@ -15,9 +15,7 @@ import { type GlossaryTerm, loadGlossaryFromCSV } from "@/utils/glossary"
 import type { ApiSettings } from "@/components/api-settings-modal"
 import { ArrowLeftRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-
-// Chave para armazenar configurações no localStorage
-const API_SETTINGS_STORAGE_KEY = "translation-platform-api-settings"
+import { STORAGE_KEYS, DEFAULT_SETTINGS, DEFAULT_URLS } from "@/utils/constants"
 
 export default function TranslationPlatform() {
   const [sourceText, setSourceText] = useState<string>("")
@@ -29,19 +27,11 @@ export default function TranslationPlatform() {
   const [viewMode, setViewMode] = useState<string>("segmented")
   const [glossaryTerms, setGlossaryTerms] = useState<GlossaryTerm[]>([])
   const [isLoadingGlossary, setIsLoadingGlossary] = useState(false)
-  const [apiSettings, setApiSettings] = useState<ApiSettings>({
-    googleApiKey: "",
-    libreApiUrl: "https://pt.libretranslate.com/translate",
-    useLocalStorage: true,
-  })
-
-  // URL do glossário
-  const glossaryUrl =
-    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/knowledge-share-terms-2025-04-28-w7A52xOLZShJKyLh1KN2WzIPADca84.csv"
+  const [apiSettings, setApiSettings] = useState<ApiSettings>(DEFAULT_SETTINGS.API)
 
   // Carregar configurações de API do localStorage
   useEffect(() => {
-    const savedSettings = localStorage.getItem(API_SETTINGS_STORAGE_KEY)
+    const savedSettings = localStorage.getItem(STORAGE_KEYS.API_SETTINGS)
     if (savedSettings) {
       try {
         const parsedSettings = JSON.parse(savedSettings)
@@ -55,7 +45,7 @@ export default function TranslationPlatform() {
   // Carregar glossário quando o componente montar
   useEffect(() => {
     setIsLoadingGlossary(true)
-    loadGlossaryFromCSV(glossaryUrl)
+    loadGlossaryFromCSV(DEFAULT_URLS.GLOSSARY)
       .then((terms) => {
         setGlossaryTerms(terms)
         console.log(`Loaded ${terms.length} glossary terms`)
@@ -91,12 +81,11 @@ export default function TranslationPlatform() {
 
     // Salvar no localStorage se a opção estiver ativada
     if (newSettings.useLocalStorage) {
-      localStorage.setItem(API_SETTINGS_STORAGE_KEY, JSON.stringify(newSettings))
+      localStorage.setItem(STORAGE_KEYS.API_SETTINGS, JSON.stringify(newSettings))
     } else {
-      localStorage.removeItem(API_SETTINGS_STORAGE_KEY)
+      localStorage.removeItem(STORAGE_KEYS.API_SETTINGS)
     }
 
-    // Aqui você poderia atualizar as configurações no servidor se necessário
     console.log("API settings updated:", newSettings)
   }
 
@@ -183,7 +172,11 @@ export default function TranslationPlatform() {
         </div>
 
         {showGlossary && (
-          <GlossaryModal isOpen={showGlossary} onClose={() => setShowGlossary(false)} glossaryUrl={glossaryUrl} />
+          <GlossaryModal
+            isOpen={showGlossary}
+            onClose={() => setShowGlossary(false)}
+            glossaryUrl={DEFAULT_URLS.GLOSSARY}
+          />
         )}
 
         {showTM && (
