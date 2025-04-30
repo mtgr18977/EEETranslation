@@ -1,5 +1,8 @@
 "use server"
 
+import { ERROR_TYPES } from "@/utils/constants"
+import { ErrorService } from "@/utils/error-service"
+
 // Configuração da API do Google Translate
 const GOOGLE_API_KEY = "AIzaSyDXqtLBOcUi1iaQiBVu9HlQiCo5V3feIIQ"
 const GOOGLE_API_URL = "https://translation.googleapis.com/language/translate/v2"
@@ -17,7 +20,13 @@ export async function translateText(
   targetLang = "pt",
   libreApiUrl = "https://pt.libretranslate.com/translate",
 ) {
-  if (!text.trim()) return { success: false, message: "No text provided" }
+  if (!text.trim()) {
+    return {
+      success: false,
+      message: "No text provided",
+      error: ErrorService.createError(ERROR_TYPES.VALIDATION, "Texto vazio para tradução"),
+    }
+  }
 
   console.log(`Traduzindo texto: "${text.substring(0, 30)}..." de ${sourceLang} para ${targetLang}`)
 
@@ -58,19 +67,27 @@ export async function translateText(
           }
         } else {
           console.error("Resposta do Google sem tradução:", data)
-          googleError = "Resposta sem tradução"
+          googleError = ErrorService.createError(ERROR_TYPES.API, "Resposta sem tradução", { response: data })
         }
       } else {
         console.error(`Erro na API do Google (${response.status}):`, data)
-        googleError = `Erro ${response.status}: ${data.error?.message || "Desconhecido"}`
+        googleError = ErrorService.createError(
+          ERROR_TYPES.API,
+          `Erro ${response.status}: ${data.error?.message || "Desconhecido"}`,
+          { status: response.status, response: data },
+        )
       }
     } catch (error) {
       console.error("Erro ao chamar Google Translate:", error)
-      googleError = error instanceof Error ? error.message : "Erro desconhecido"
+      googleError = ErrorService.createError(
+        ERROR_TYPES.NETWORK,
+        error instanceof Error ? error.message : "Erro desconhecido",
+        { error },
+      )
     }
   }
 
-  console.log(`Google Translate falhou após ${MAX_RETRIES + 1} tentativas. Erro: ${googleError}`)
+  console.log(`Google Translate falhou após ${MAX_RETRIES + 1} tentativas. Erro:`, googleError)
   console.log("Tentando LibreTranslate como fallback via proxy")
 
   // Tentativas com LibreTranslate via proxy
@@ -115,27 +132,39 @@ export async function translateText(
           }
         } else {
           console.error("Resposta do LibreTranslate sem tradução:", data)
-          libreError = "Resposta sem tradução"
+          libreError = ErrorService.createError(ERROR_TYPES.API, "Resposta sem tradução", { response: data })
         }
       } else {
         console.error(`Erro na API do LibreTranslate (${response.status}):`, data)
-        libreError = `Erro ${response.status}: ${data.error || "Desconhecido"}`
+        libreError = ErrorService.createError(
+          ERROR_TYPES.API,
+          `Erro ${response.status}: ${data.error || "Desconhecido"}`,
+          { status: response.status, response: data },
+        )
       }
     } catch (error) {
       console.error("Erro ao chamar LibreTranslate:", error)
-      libreError = error instanceof Error ? error.message : "Erro desconhecido"
+      libreError = ErrorService.createError(
+        ERROR_TYPES.NETWORK,
+        error instanceof Error ? error.message : "Erro desconhecido",
+        { error },
+      )
     }
   }
 
-  console.log(`LibreTranslate também falhou após ${MAX_RETRIES + 1} tentativas. Erro: ${libreError}`)
+  console.log(`LibreTranslate também falhou após ${MAX_RETRIES + 1} tentativas. Erro:`, libreError)
 
   // Ambos os provedores falharam
   return {
     success: false,
-    message: `Falha na tradução com ambos os provedores. Google: ${googleError}. LibreTranslate: ${libreError}`,
+    message: `Falha na tradução com ambos os provedores.`,
     details: {
       googleError,
       libreError,
     },
+    error: ErrorService.createError(ERROR_TYPES.API, "Falha na tradução com todos os provedores disponíveis", {
+      googleError,
+      libreError,
+    }),
   }
 }

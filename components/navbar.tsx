@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { useRef, useState } from "react"
 import { useKeyboardShortcuts } from "@/contexts/keyboard-shortcuts-context"
 import ApiSettingsModal, { type ApiSettings } from "./api-settings-modal"
+import { ThemeToggle } from "./theme-toggle"
 
 interface NavbarProps {
   onUpload: (content: string) => void
@@ -57,7 +58,7 @@ export default function Navbar({
   }
 
   return (
-    <nav className="bg-slate-50 border-b p-4 flex justify-between">
+    <nav className="bg-slate-50 border-b p-4 flex justify-between dark:bg-slate-900 dark:border-slate-800">
       <div className="flex gap-4">
         <input type="file" accept=".md,.txt" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
 
@@ -82,7 +83,9 @@ export default function Navbar({
         </Button>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 items-center">
+        <ThemeToggle />
+
         <Button variant="outline" size="sm" onClick={() => setIsApiSettingsOpen(true)}>
           <Settings className="mr-2 h-4 w-4" />
           API
