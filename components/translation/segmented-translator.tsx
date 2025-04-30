@@ -1,16 +1,19 @@
 "use client"
 
+import { lazy, Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Loader2, Keyboard, Save, FileDown, AlertTriangle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import AlignmentLegend from "../alignment-legend"
-import KeyboardShortcutsModal from "../keyboard-shortcuts-modal"
 import { useKeyboardShortcuts } from "@/contexts/keyboard-shortcuts-context"
 import { useSegmentedTranslator } from "@/hooks/use-segmented-translator"
-import SegmentTranslator from "./segment-translator"
 import type { GlossaryTerm } from "@/utils/glossary"
 import type { ApiSettings } from "@/components/api-settings-modal"
+import VirtualizedSegmentList from "./virtualized-segment-list"
+
+// Lazy load o modal de atalhos de teclado
+const KeyboardShortcutsModal = lazy(() => import("../keyboard-shortcuts-modal"))
 
 interface SegmentedTranslatorProps {
   sourceText: string
@@ -44,7 +47,6 @@ export default function SegmentedTranslator({
     translationError,
     failedSegments,
     translationDetails,
-    displayableSegments,
     untranslatedCount,
     totalSegments,
     translatedPercent,
@@ -140,23 +142,18 @@ export default function SegmentedTranslator({
         </Alert>
       )}
 
-      <div className="space-y-2">
-        {displayableSegments.map((segment, index) => (
-          <SegmentTranslator
-            key={segment.id}
-            segment={segment}
-            onUpdateSegment={handleUpdateSegment}
-            sourceLang={sourceLang}
-            targetLang={targetLang}
-            index={index}
-            isActive={segment.id === activeSegmentId}
-            onActivate={() => setActiveSegmentId(segment.id)}
-            glossaryTerms={glossaryTerms}
-            isFailedSegment={failedSegments.includes(segment.id)}
-            apiSettings={apiSettings}
-          />
-        ))}
-      </div>
+      {/* Substituir a lista de segmentos por uma lista virtualizada */}
+      <VirtualizedSegmentList
+        segments={segments}
+        onUpdateSegment={handleUpdateSegment}
+        sourceLang={sourceLang}
+        targetLang={targetLang}
+        activeSegmentId={activeSegmentId}
+        setActiveSegmentId={setActiveSegmentId}
+        glossaryTerms={glossaryTerms}
+        failedSegments={failedSegments}
+        apiSettings={apiSettings}
+      />
 
       <div className="flex justify-center gap-4 pt-6 pb-2">
         <Button size="lg" onClick={handleSaveTranslation} className="bg-zinc-700 hover:bg-zinc-800 text-white">
@@ -172,7 +169,9 @@ export default function SegmentedTranslator({
         )}
       </div>
 
-      <KeyboardShortcutsModal />
+      <Suspense fallback={null}>
+        <KeyboardShortcutsModal />
+      </Suspense>
     </div>
   )
 }

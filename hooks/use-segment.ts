@@ -2,13 +2,14 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { useKeyboardShortcuts } from "@/contexts/keyboard-shortcuts-context"
 import { translateText } from "@/app/actions/translate"
 import { runQualityChecks, type QualityIssue } from "@/utils/quality-checks"
 import { findGlossaryTerms } from "@/utils/glossary"
 import type { SegmentPair } from "@/utils/segmentation"
 import type { GlossaryTerm } from "@/utils/glossary"
+import { useDebounce } from "./use-debounce"
 
 interface UseSegmentProps {
   segment: SegmentPair
@@ -38,6 +39,9 @@ export function useSegment({
   const [highlightedTerms, setHighlightedTerms] = useState<{ term: GlossaryTerm; index: number }[]>([])
   const [translationError, setTranslationError] = useState<string | null>(null)
 
+  // Debounce do texto local para evitar verificações de qualidade em cada digitação
+  const debouncedLocalText = useDebounce(localText, 500)
+
   // Obter contexto de atalhos de teclado
   const { registerShortcutHandler, unregisterShortcutHandler } = useKeyboardShortcuts()
 
@@ -53,24 +57,35 @@ export function useSegment({
     }
   }, [segment.id, segment.target])
 
-  // Verificar qualidade quando o texto muda
+  // Verificar qualidade quando o texto debounced muda
   useEffect(() => {
-    if (segment.target.trim()) {
-      const issues = runQualityChecks(segment.source, segment.target)
-      setQualityIssues(issues)
+    if (debouncedLocalText.trim() && segment.source) {
+      // Executar verificações de qualidade em um timeout para não bloquear a UI
+      const timeoutId = setTimeout(() => {
+        const issues = runQualityChecks(segment.source, debouncedLocalText)
+        setQualityIssues(issues)
+      }, 0)
+
+      return () => clearTimeout(timeoutId)
     } else {
       setQualityIssues([])
     }
-  }, [segment.source, segment.target])
+  }, [debouncedLocalText, segment.source])
 
-  // Encontrar termos do glossário no texto fonte
+  // Encontrar termos do glossário no texto fonte - memoizado para evitar recálculos
   useEffect(() => {
-    if (glossaryTerms.length > 0 && segment.source) {
+    if (glossaryTerms.length === 0 || !segment.source) {
+      setHighlightedTerms([])
+      return
+    }
+
+    // Executar em um timeout para não bloquear a UI
+    const timeoutId = setTimeout(() => {
       const terms = findGlossaryTerms(segment.source, glossaryTerms)
       setHighlightedTerms(terms)
-    } else {
-      setHighlightedTerms([])
-    }
+    }, 0)
+
+    return () => clearTimeout(timeoutId)
   }, [segment.source, glossaryTerms])
 
   // Focar o textarea quando o segmento fica ativo
@@ -80,8 +95,8 @@ export function useSegment({
     }
   }, [isActive, viewMode])
 
-  // Handlers
-  async function handleTranslate() {
+  // Handlers memoizados para evitar recriações desnecessárias
+  const handleTranslate = useCallback(async () => {
     if (!segment.source.trim() || isTranslating) return
 
     setIsTranslating(true)
@@ -104,36 +119,39 @@ export function useSegment({
     } finally {
       setIsTranslating(false)
     }
-  }
+  }, [segment.source, sourceLang, targetLang, apiSettings?.libreApiUrl, isTranslating])
 
-  function handleApplySuggestion() {
+  const handleApplySuggestion = useCallback(() => {
     if (suggestion) {
       setLocalText(suggestion)
       onUpdateSegment(segment.id, suggestion)
       setSuggestion(null)
     }
-  }
+  }, [suggestion, segment.id, onUpdateSegment])
 
-  function handleRejectSuggestion() {
+  const handleRejectSuggestion = useCallback(() => {
     setSuggestion(null)
-  }
+  }, [])
 
-  function handleViewModeChange(mode: "edit" | "align") {
-    // Salvar mudanças antes de mudar de visualização
-    if (localText !== segment.target) {
-      onUpdateSegment(segment.id, localText)
-    }
+  const handleViewModeChange = useCallback(
+    (mode: "edit" | "align") => {
+      // Salvar mudanças antes de mudar de visualização
+      if (localText !== segment.target) {
+        onUpdateSegment(segment.id, localText)
+      }
 
-    setViewMode(mode)
-  }
+      setViewMode(mode)
+    },
+    [localText, segment.target, segment.id, onUpdateSegment],
+  )
 
-  function handleTextChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+  const handleTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value
     setLocalText(newText)
-  }
+  }, [])
 
   // Nova função para copiar o texto fonte para o alvo
-  function handleCopySourceToTarget() {
+  const handleCopySourceToTarget = useCallback(() => {
     if (segment.source) {
       setLocalText(segment.source)
       onUpdateSegment(segment.id, segment.source)
@@ -148,7 +166,14 @@ export function useSegment({
         }, 300)
       }
     }
-  }
+  }, [segment.source, segment.id, onUpdateSegment])
+
+  // Função para salvar o texto quando o usuário sai do campo
+  const handleBlur = useCallback(() => {
+    if (localText !== segment.target) {
+      onUpdateSegment(segment.id, localText)
+    }
+  }, [localText, segment.target, segment.id, onUpdateSegment])
 
   // Registrar atalhos de teclado específicos para este segmento quando estiver ativo
   useEffect(() => {
@@ -174,7 +199,18 @@ export function useSegment({
         unregisterShortcutHandler("copySourceToTarget")
       }
     }
-  }, [isActive, suggestion, registerShortcutHandler, unregisterShortcutHandler, viewMode, segment.source])
+  }, [
+    isActive,
+    suggestion,
+    registerShortcutHandler,
+    unregisterShortcutHandler,
+    viewMode,
+    handleApplySuggestion,
+    handleRejectSuggestion,
+    handleTranslate,
+    handleViewModeChange,
+    handleCopySourceToTarget,
+  ])
 
   return {
     isTranslating,
@@ -191,5 +227,6 @@ export function useSegment({
     handleViewModeChange,
     handleTextChange,
     handleCopySourceToTarget,
+    handleBlur,
   }
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react"
+import { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from "react"
 
 type ShortcutAction =
   | "nextSegment"
@@ -113,13 +113,14 @@ const defaultShortcuts: ShortcutMapping[] = [
 const KeyboardShortcutsContext = createContext<KeyboardShortcutsContextType | undefined>(undefined)
 
 export function KeyboardShortcutsProvider({ children }) {
-  const [shortcuts] = useState(defaultShortcuts)
+  // Memoize shortcuts para evitar recriações
+  const shortcuts = useMemo(() => defaultShortcuts, [])
   const [isShortcutsModalOpen, setShortcutsModalOpen] = useState(false)
 
-  // Use a ref to store handlers to avoid re-renders
+  // Use um ref para armazenar handlers para evitar re-renders
   const handlersRef = useRef<Record<string, () => void>>({})
 
-  // Memoize these functions to prevent them from changing on every render
+  // Memoize estas funções para evitar que elas mudem a cada renderização
   const registerShortcutHandler = useCallback((action: ShortcutAction, handler: () => void) => {
     handlersRef.current[action] = handler
   }, [])
@@ -128,10 +129,18 @@ export function KeyboardShortcutsProvider({ children }) {
     delete handlersRef.current[action]
   }, [])
 
-  // Global keyboard event handler
+  // Manipulador de eventos de teclado global
   useEffect(() => {
+    // Criar um mapa de atalhos para pesquisa rápida
+    const shortcutMap = new Map<string, ShortcutMapping>()
+
+    shortcuts.forEach((shortcut) => {
+      const key = `${shortcut.key}-${shortcut.ctrlKey || false}-${shortcut.altKey || false}-${shortcut.shiftKey || false}`
+      shortcutMap.set(key, shortcut)
+    })
+
     function handleKeyDown(event: KeyboardEvent) {
-      // Não trigger shortcuts quando digitando em campos de entrada
+      // Não acionar atalhos ao digitar em campos de entrada
       if (
         event.target instanceof HTMLInputElement ||
         event.target instanceof HTMLTextAreaElement ||
@@ -158,19 +167,14 @@ export function KeyboardShortcutsProvider({ children }) {
       }
 
       // Verificar se a combinação de teclas corresponde a algum dos nossos atalhos
-      for (const shortcut of shortcuts) {
-        if (
-          event.key === shortcut.key &&
-          !!event.ctrlKey === !!shortcut.ctrlKey &&
-          !!event.altKey === !!shortcut.altKey &&
-          !!event.shiftKey === !!shortcut.shiftKey
-        ) {
-          const handler = handlersRef.current[shortcut.action]
-          if (handler) {
-            event.preventDefault()
-            handler()
-            return
-          }
+      const lookupKey = `${event.key}-${event.ctrlKey}-${event.altKey}-${event.shiftKey}`
+      const shortcut = shortcutMap.get(lookupKey)
+
+      if (shortcut) {
+        const handler = handlersRef.current[shortcut.action]
+        if (handler) {
+          event.preventDefault()
+          handler()
         }
       }
     }
@@ -182,13 +186,17 @@ export function KeyboardShortcutsProvider({ children }) {
     }
   }, [shortcuts, setShortcutsModalOpen])
 
-  const contextValue = {
-    shortcuts,
-    registerShortcutHandler,
-    unregisterShortcutHandler,
-    isShortcutsModalOpen,
-    setShortcutsModalOpen,
-  }
+  // Memoize o valor do contexto para evitar renderizações desnecessárias
+  const contextValue = useMemo(
+    () => ({
+      shortcuts,
+      registerShortcutHandler,
+      unregisterShortcutHandler,
+      isShortcutsModalOpen,
+      setShortcutsModalOpen,
+    }),
+    [shortcuts, registerShortcutHandler, unregisterShortcutHandler, isShortcutsModalOpen, setShortcutsModalOpen],
+  )
 
   return <KeyboardShortcutsContext.Provider value={contextValue}>{children}</KeyboardShortcutsContext.Provider>
 }
