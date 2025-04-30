@@ -28,6 +28,8 @@ interface SegmentTranslatorProps {
   glossaryTerms?: GlossaryTerm[]
   isFailedSegment?: boolean
   apiSettings?: { libreApiUrl?: string }
+  registerShortcutHandler: (key: string, handler: () => void) => void
+  unregisterShortcutHandler: (key: string) => void
 }
 
 // Usar memo para evitar renderizações desnecessárias
@@ -43,6 +45,8 @@ const SegmentTranslator = memo(
     glossaryTerms = [],
     isFailedSegment = false,
     apiSettings,
+    registerShortcutHandler,
+    unregisterShortcutHandler,
   }: SegmentTranslatorProps) {
     // Estado local
     const [isTranslating, setIsTranslating] = useState(false)
@@ -261,6 +265,30 @@ const SegmentTranslator = memo(
       )
     }
 
+    // Registrar atalhos de teclado específicos para este segmento quando estiver ativo
+    useEffect(() => {
+      if (isActive) {
+        // Registrar atalhos específicos para este segmento
+        if (suggestion) {
+          registerShortcutHandler("applySuggestion", handleApplySuggestion)
+          registerShortcutHandler("rejectSuggestion", handleRejectSuggestion)
+        }
+
+        registerShortcutHandler("suggestTranslation", handleTranslate)
+        registerShortcutHandler("toggleAlignView", () => handleToggleViewMode(viewMode === "edit" ? "align" : "edit"))
+
+        return () => {
+          // Limpar os handlers quando o componente for desmontado ou não estiver mais ativo
+          if (suggestion) {
+            unregisterShortcutHandler("applySuggestion")
+            unregisterShortcutHandler("rejectSuggestion")
+          }
+          unregisterShortcutHandler("suggestTranslation")
+          unregisterShortcutHandler("toggleAlignView")
+        }
+      }
+    }, [isActive, suggestion, registerShortcutHandler, unregisterShortcutHandler, viewMode])
+
     return (
       <Card
         className={`mb-4 ${isActive ? "border-primary border-2" : ""} ${
@@ -411,7 +439,9 @@ const SegmentTranslator = memo(
       prevProps.index === nextProps.index &&
       prevProps.glossaryTerms === nextProps.glossaryTerms &&
       prevProps.isFailedSegment === nextProps.isFailedSegment &&
-      prevProps.apiSettings === nextProps.apiSettings
+      prevProps.apiSettings === nextProps.apiSettings &&
+      prevProps.registerShortcutHandler === nextProps.registerShortcutHandler &&
+      prevProps.unregisterShortcutHandler === nextProps.unregisterShortcutHandler
     )
   },
 )

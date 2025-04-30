@@ -121,27 +121,27 @@ export function KeyboardShortcutsProvider({ children }) {
 
   // Global keyboard event handler
   useEffect(() => {
-    function handleKeyDown(event) {
-      // Don't trigger shortcuts when typing in input fields
+    function handleKeyDown(event: KeyboardEvent) {
+      // Não trigger shortcuts quando digitando em campos de entrada
       if (
         event.target instanceof HTMLInputElement ||
         event.target instanceof HTMLTextAreaElement ||
         event.target instanceof HTMLSelectElement
       ) {
-        // Allow Escape key to work even in input fields
+        // Permitir tecla Escape mesmo em campos de entrada
         if (event.key !== "Escape") {
           return
         }
       }
 
-      // Special case for the shortcuts modal
+      // Caso especial para o modal de atalhos
       if (event.key === "?" && event.shiftKey) {
-        setShortcutsModalOpen(true)
         event.preventDefault()
+        setShortcutsModalOpen(true)
         return
       }
 
-      // Check if the key combination matches any of our shortcuts
+      // Verificar se a combinação de teclas corresponde a algum dos nossos atalhos
       for (const shortcut of shortcuts) {
         if (
           event.key === shortcut.key &&
@@ -151,19 +151,20 @@ export function KeyboardShortcutsProvider({ children }) {
         ) {
           const handler = handlersRef.current[shortcut.action]
           if (handler) {
-            handler()
             event.preventDefault()
+            handler()
             return
           }
         }
       }
     }
 
-    window.addEventListener("keydown", handleKeyDown)
+    // Usar document em vez de window para capturar eventos em todo o documento
+    document.addEventListener("keydown", handleKeyDown)
     return () => {
-      window.removeEventListener("keydown", handleKeyDown)
+      document.removeEventListener("keydown", handleKeyDown)
     }
-  }, [shortcuts]) // Only depend on shortcuts, not handlers
+  }, [shortcuts, setShortcutsModalOpen])
 
   const contextValue = {
     shortcuts,

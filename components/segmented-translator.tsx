@@ -56,6 +56,63 @@ export default function SegmentedTranslator({
   // Obter contexto de atalhos de teclado
   const { registerShortcutHandler, unregisterShortcutHandler, setShortcutsModalOpen } = useKeyboardShortcuts()
 
+  // Manipular salvar tradução
+  const handleSaveTranslation = useCallback(() => {
+    try {
+      // Extrair texto alvo dos segmentos
+      const targetSegments = segmentsRef.current.map((s) => s.target)
+      const newTargetText = joinSegments(targetSegments)
+
+      // Atualizar o texto alvo
+      onUpdateTargetText(newTargetText)
+
+      // Gerar relatório de qualidade
+      const displayableSegments = segmentsRef.current.filter((s) => !s.isLineBreak)
+
+      const qualityIssues = displayableSegments.map((segment) => {
+        if (!segment.target.trim()) return { segment: segment.source, issues: [] }
+        return {
+          segment: segment.source,
+          issues: runQualityChecks(segment.source, segment.target),
+        }
+      })
+
+      // Calcular estatísticas de leiturabilidade
+      const sourceReadability = calculateReadability(sourceText, sourceLang)
+      const targetReadability = calculateReadability(newTargetText, targetLang)
+
+      // Preparar dados do relatório
+      const reportData = {
+        qualityIssues,
+        sourceReadability,
+        targetReadability,
+        stats: {
+          totalSegments: displayableSegments.length,
+          translatedSegments: displayableSegments.filter((s) => s.isTranslated).length,
+          errorCount: qualityIssues.reduce(
+            (count, item) => count + item.issues.filter((i) => i.severity === "error").length,
+            0,
+          ),
+          warningCount: qualityIssues.reduce(
+            (count, item) => count + item.issues.filter((i) => i.severity === "warning").length,
+            0,
+          ),
+        },
+      }
+
+      setQualityReportData(reportData)
+      setShowQualityReport(true)
+      setSaveSuccess(true)
+
+      // Limpar mensagem de sucesso após 3 segundos
+      setTimeout(() => {
+        setSaveSuccess(false)
+      }, 3000)
+    } catch (error) {
+      console.error("Error saving translation:", error)
+    }
+  }, [onUpdateTargetText, sourceText, sourceLang, targetLang])
+
   // Processar texto em segmentos quando o texto fonte muda
   useEffect(() => {
     // Pular se nada mudou
@@ -189,14 +246,23 @@ export default function SegmentedTranslator({
     registerShortcutHandler("nextSegment", handleNextSegment)
     registerShortcutHandler("prevSegment", handlePrevSegment)
     registerShortcutHandler("nextUntranslated", handleNextUntranslated)
+    registerShortcutHandler("saveTranslation", handleSaveTranslation)
 
     // Função de limpeza
     return () => {
       unregisterShortcutHandler("nextSegment")
       unregisterShortcutHandler("prevSegment")
       unregisterShortcutHandler("nextUntranslated")
+      unregisterShortcutHandler("saveTranslation")
     }
-  }, [registerShortcutHandler, unregisterShortcutHandler, handleNextSegment, handlePrevSegment, handleNextUntranslated])
+  }, [
+    registerShortcutHandler,
+    unregisterShortcutHandler,
+    handleNextSegment,
+    handlePrevSegment,
+    handleNextUntranslated,
+    handleSaveTranslation,
+  ])
 
   // Manipular tradução em lote
   const handleTranslateAll = async () => {
@@ -280,63 +346,6 @@ export default function SegmentedTranslator({
       setIsBatchTranslating(false)
     }
   }
-
-  // Função para salvar a tradução e gerar relatório
-  const handleSaveTranslation = useCallback(() => {
-    try {
-      // Extrair texto alvo dos segmentos
-      const targetSegments = segmentsRef.current.map((s) => s.target)
-      const newTargetText = joinSegments(targetSegments)
-
-      // Atualizar o texto alvo
-      onUpdateTargetText(newTargetText)
-
-      // Gerar relatório de qualidade
-      const displayableSegments = segmentsRef.current.filter((s) => !s.isLineBreak)
-
-      const qualityIssues = displayableSegments.map((segment) => {
-        if (!segment.target.trim()) return { segment: segment.source, issues: [] }
-        return {
-          segment: segment.source,
-          issues: runQualityChecks(segment.source, segment.target),
-        }
-      })
-
-      // Calcular estatísticas de leiturabilidade
-      const sourceReadability = calculateReadability(sourceText, sourceLang)
-      const targetReadability = calculateReadability(newTargetText, targetLang)
-
-      // Preparar dados do relatório
-      const reportData = {
-        qualityIssues,
-        sourceReadability,
-        targetReadability,
-        stats: {
-          totalSegments: displayableSegments.length,
-          translatedSegments: displayableSegments.filter((s) => s.isTranslated).length,
-          errorCount: qualityIssues.reduce(
-            (count, item) => count + item.issues.filter((i) => i.severity === "error").length,
-            0,
-          ),
-          warningCount: qualityIssues.reduce(
-            (count, item) => count + item.issues.filter((i) => i.severity === "warning").length,
-            0,
-          ),
-        },
-      }
-
-      setQualityReportData(reportData)
-      setShowQualityReport(true)
-      setSaveSuccess(true)
-
-      // Limpar mensagem de sucesso após 3 segundos
-      setTimeout(() => {
-        setSaveSuccess(false)
-      }, 3000)
-    } catch (error) {
-      console.error("Error saving translation:", error)
-    }
-  }, [onUpdateTargetText, sourceText, sourceLang, targetLang])
 
   // Função para exportar o relatório em Markdown
   const handleExportReport = useCallback(() => {
