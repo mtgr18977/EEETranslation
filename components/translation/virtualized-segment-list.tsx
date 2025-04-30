@@ -69,7 +69,15 @@ export default function VirtualizedSegmentList({
   }, [activeSegmentId, displayableSegments, virtualizer])
 
   return (
-    <div ref={parentRef} className="h-[calc(100vh-250px)] overflow-auto" style={{ contain: "strict" }}>
+    <div
+      ref={parentRef}
+      className="overflow-auto"
+      style={{
+        height: "calc(100vh - 250px)",
+        maxHeight: "calc(100vh - 250px)",
+        position: "relative",
+      }}
+    >
       <div
         style={{
           height: `${virtualizer.getTotalSize()}px`,

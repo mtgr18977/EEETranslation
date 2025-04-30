@@ -10,7 +10,7 @@ import { useKeyboardShortcuts } from "@/contexts/keyboard-shortcuts-context"
 import { useSegmentedTranslator } from "@/hooks/use-segmented-translator"
 import type { GlossaryTerm } from "@/utils/glossary"
 import type { ApiSettings } from "@/components/api-settings-modal"
-import VirtualizedSegmentList from "./virtualized-segment-list"
+import OptimizedSegmentList from "./optimized-segment-list"
 
 // Lazy load o modal de atalhos de teclado
 const KeyboardShortcutsModal = lazy(() => import("../keyboard-shortcuts-modal"))
@@ -142,8 +142,8 @@ export default function SegmentedTranslator({
         </Alert>
       )}
 
-      {/* Substituir a lista de segmentos por uma lista virtualizada */}
-      <VirtualizedSegmentList
+      {/* Lista de segmentos otimizada */}
+      <OptimizedSegmentList
         segments={segments}
         onUpdateSegment={handleUpdateSegment}
         sourceLang={sourceLang}
