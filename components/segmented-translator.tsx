@@ -511,7 +511,7 @@ export default function SegmentedTranslator({
       </div>
 
       <div className="flex justify-center gap-4 pt-6 pb-2">
-        <Button size="lg" onClick={handleSaveTranslation} className="bg-teal-600 hover:bg-teal-700 text-white">
+        <Button size="lg" onClick={handleSaveTranslation} className="bg-zinc-700 hover:bg-zinc-800 text-white">
           <Save className="h-5 w-5 mr-2" />
           Pronto
         </Button>

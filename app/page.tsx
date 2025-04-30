@@ -13,6 +13,9 @@ import TargetText from "@/components/target-text"
 import { KeyboardShortcutsProvider } from "@/contexts/keyboard-shortcuts-context"
 import { type GlossaryTerm, loadGlossaryFromCSV } from "@/utils/glossary"
 import type { ApiSettings } from "@/components/api-settings-modal"
+// Adicionar o import do ícone ArrowLeftRight
+import { ArrowLeftRight } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 // Chave para armazenar configurações no localStorage
 const API_SETTINGS_STORAGE_KEY = "translation-platform-api-settings"
@@ -113,8 +116,30 @@ export default function TranslationPlatform() {
         <div className="flex flex-1 p-4 gap-4 overflow-hidden">
           <div className="flex flex-col flex-1 overflow-hidden">
             <div className="flex justify-between items-center mb-4">
-              <div className="flex gap-4">
+              <div className="flex items-center gap-2">
                 <LanguageSelector value={sourceLang} onChange={setSourceLang} label="Source" />
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="mx-1 rounded-full hover:bg-slate-200"
+                  onClick={() => {
+                    // Inverter os idiomas
+                    const tempLang = sourceLang
+                    setSourceLang(targetLang)
+                    setTargetLang(tempLang)
+
+                    // Se estiver na visualização completa e houver texto, também inverter os textos
+                    if (viewMode === "full" && sourceText && targetText) {
+                      setSourceText(targetText)
+                      setTargetText(sourceText)
+                    }
+                  }}
+                  title="Inverter direção da tradução"
+                >
+                  <ArrowLeftRight className="h-5 w-5" />
+                </Button>
+
                 <LanguageSelector value={targetLang} onChange={setTargetLang} label="Target" />
               </div>
 

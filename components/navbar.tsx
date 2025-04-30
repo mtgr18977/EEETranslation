@@ -61,22 +61,22 @@ export default function Navbar({
       <div className="flex gap-4">
         <input type="file" accept=".md,.txt" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
 
-        <Button className="bg-teal-600 hover:bg-teal-700 text-white" onClick={() => fileInputRef.current?.click()}>
+        <Button className="bg-zinc-700 hover:bg-zinc-800 text-white" onClick={() => fileInputRef.current?.click()}>
           <Upload className="mr-2 h-4 w-4" />
           Upload
         </Button>
 
-        <Button className="bg-teal-600 hover:bg-teal-700 text-white" onClick={onDownload}>
+        <Button className="bg-zinc-700 hover:bg-zinc-800 text-white" onClick={onDownload}>
           <Download className="mr-2 h-4 w-4" />
           Download
         </Button>
 
-        <Button className="bg-teal-600 hover:bg-teal-700 text-white" onClick={onOpenTM}>
+        <Button className="bg-zinc-700 hover:bg-zinc-800 text-white" onClick={onOpenTM}>
           <Database className="mr-2 h-4 w-4" />
           MT
         </Button>
 
-        <Button className="bg-teal-600 hover:bg-teal-700 text-white" onClick={onOpenGlossary}>
+        <Button className="bg-zinc-700 hover:bg-zinc-800 text-white" onClick={onOpenGlossary}>
           <Book className="mr-2 h-4 w-4" />
           Glossário
         </Button>
