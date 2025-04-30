@@ -132,8 +132,22 @@ export function useSegment({
     setLocalText(newText)
   }
 
-  function handleActivate() {
-    // Já está implementado no componente pai
+  // Nova função para copiar o texto fonte para o alvo
+  function handleCopySourceToTarget() {
+    if (segment.source) {
+      setLocalText(segment.source)
+      onUpdateSegment(segment.id, segment.source)
+
+      // Mostrar feedback visual (opcional)
+      if (textareaRef.current) {
+        textareaRef.current.classList.add("bg-green-100")
+        setTimeout(() => {
+          if (textareaRef.current) {
+            textareaRef.current.classList.remove("bg-green-100")
+          }
+        }, 300)
+      }
+    }
   }
 
   // Registrar atalhos de teclado específicos para este segmento quando estiver ativo
@@ -147,6 +161,7 @@ export function useSegment({
 
       registerShortcutHandler("suggestTranslation", handleTranslate)
       registerShortcutHandler("toggleAlignView", () => handleViewModeChange(viewMode === "edit" ? "align" : "edit"))
+      registerShortcutHandler("copySourceToTarget", handleCopySourceToTarget)
 
       return () => {
         // Limpar os handlers quando o componente for desmontado ou não estiver mais ativo
@@ -156,9 +171,10 @@ export function useSegment({
         }
         unregisterShortcutHandler("suggestTranslation")
         unregisterShortcutHandler("toggleAlignView")
+        unregisterShortcutHandler("copySourceToTarget")
       }
     }
-  }, [isActive, suggestion, registerShortcutHandler, unregisterShortcutHandler, viewMode])
+  }, [isActive, suggestion, registerShortcutHandler, unregisterShortcutHandler, viewMode, segment.source])
 
   return {
     isTranslating,
@@ -174,5 +190,6 @@ export function useSegment({
     handleRejectSuggestion,
     handleViewModeChange,
     handleTextChange,
+    handleCopySourceToTarget,
   }
 }

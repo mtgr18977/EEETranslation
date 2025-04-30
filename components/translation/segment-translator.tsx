@@ -48,6 +48,7 @@ const SegmentTranslator = memo(
       handleRejectSuggestion,
       handleViewModeChange,
       handleTextChange,
+      handleCopySourceToTarget,
     } = useSegment({
       segment,
       onUpdateSegment,
@@ -82,6 +83,7 @@ const SegmentTranslator = memo(
         onTranslate={handleTranslate}
         onApplySuggestion={handleApplySuggestion}
         onRejectSuggestion={handleRejectSuggestion}
+        onCopySourceToTarget={handleCopySourceToTarget}
         textareaRef={textareaRef}
       />
     )

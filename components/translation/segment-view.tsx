@@ -29,7 +29,7 @@ interface SegmentViewProps {
   viewMode: "edit" | "align"
   onViewModeChange: (mode: "edit" | "align") => void
   localText: string
-  onLocalTextChange: (text: string) => void
+  onLocalTextChange: (text: React.ChangeEvent<HTMLTextAreaElement>) => void
   qualityIssues: QualityIssue[]
   highlightedTerms: { term: GlossaryTerm; index: number }[]
   suggestion: string | null
@@ -38,6 +38,7 @@ interface SegmentViewProps {
   onTranslate: () => void
   onApplySuggestion: () => void
   onRejectSuggestion: () => void
+  onCopySourceToTarget: () => void
   textareaRef: React.RefObject<HTMLTextAreaElement>
 }
 
@@ -61,6 +62,7 @@ const SegmentView = memo(function SegmentView({
   onTranslate,
   onApplySuggestion,
   onRejectSuggestion,
+  onCopySourceToTarget,
   textareaRef,
 }: SegmentViewProps) {
   // Verificar problemas de qualidade
@@ -184,6 +186,7 @@ const SegmentView = memo(function SegmentView({
                     segment={segment}
                     isTranslating={isTranslating}
                     onTranslate={onTranslate}
+                    onCopySourceToTarget={onCopySourceToTarget}
                     translationError={translationError}
                   />
                 )}
