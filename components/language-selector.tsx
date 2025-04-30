@@ -25,7 +25,7 @@ export default function LanguageSelector({ value, onChange, label }: LanguageSel
   ]
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 w-[180px]">
       <Label htmlFor={`language-${label}`}>{label}</Label>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger id={`language-${label}`} className="w-full">

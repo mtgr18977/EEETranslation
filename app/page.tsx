@@ -13,7 +13,6 @@ import TargetText from "@/components/target-text"
 import { KeyboardShortcutsProvider } from "@/contexts/keyboard-shortcuts-context"
 import { type GlossaryTerm, loadGlossaryFromCSV } from "@/utils/glossary"
 import type { ApiSettings } from "@/components/api-settings-modal"
-// Adicionar o import do ícone ArrowLeftRight
 import { ArrowLeftRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -101,6 +100,20 @@ export default function TranslationPlatform() {
     console.log("API settings updated:", newSettings)
   }
 
+  // Função para inverter os idiomas
+  const handleSwapLanguages = () => {
+    // Inverter os idiomas
+    const tempLang = sourceLang
+    setSourceLang(targetLang)
+    setTargetLang(tempLang)
+
+    // Se estiver na visualização completa e houver texto, também inverter os textos
+    if (viewMode === "full" && sourceText && targetText) {
+      setSourceText(targetText)
+      setTargetText(sourceText)
+    }
+  }
+
   return (
     <KeyboardShortcutsProvider>
       <main className="flex flex-col h-screen bg-gray-50">
@@ -116,31 +129,24 @@ export default function TranslationPlatform() {
         <div className="flex flex-1 p-4 gap-4 overflow-hidden">
           <div className="flex flex-col flex-1 overflow-hidden">
             <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center gap-2">
-                <LanguageSelector value={sourceLang} onChange={setSourceLang} label="Source" />
+              <div className="flex items-center">
+                <div className="flex items-end">
+                  <LanguageSelector value={sourceLang} onChange={setSourceLang} label="Source" />
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="mx-1 rounded-full hover:bg-slate-200"
-                  onClick={() => {
-                    // Inverter os idiomas
-                    const tempLang = sourceLang
-                    setSourceLang(targetLang)
-                    setTargetLang(tempLang)
+                  <div className="flex items-center justify-center w-12 h-10 mb-[1px]">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="rounded-full hover:bg-slate-200 flex-shrink-0"
+                      onClick={handleSwapLanguages}
+                      title="Inverter direção da tradução"
+                    >
+                      <ArrowLeftRight className="h-5 w-5" />
+                    </Button>
+                  </div>
 
-                    // Se estiver na visualização completa e houver texto, também inverter os textos
-                    if (viewMode === "full" && sourceText && targetText) {
-                      setSourceText(targetText)
-                      setTargetText(sourceText)
-                    }
-                  }}
-                  title="Inverter direção da tradução"
-                >
-                  <ArrowLeftRight className="h-5 w-5" />
-                </Button>
-
-                <LanguageSelector value={targetLang} onChange={setTargetLang} label="Target" />
+                  <LanguageSelector value={targetLang} onChange={setTargetLang} label="Target" />
+                </div>
               </div>
 
               <Tabs value={viewMode} onValueChange={setViewMode} className="w-[400px]">
