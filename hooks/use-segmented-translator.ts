@@ -85,6 +85,8 @@ export function useSegmentedTranslator({
     return () => clearTimeout(timeoutId)
   }, [sourceText, targetText, activeSegmentId, segments.length])
 
+  // Manipular atualização de segmento - apenas atualiza o estado local, não o  segments.length])
+
   // Manipular atualização de segmento - apenas atualiza o estado local, não o texto alvo
   const handleUpdateSegment = useCallback((id: string, translation: string) => {
     setSegments((prev) => {
@@ -248,8 +250,8 @@ export function useSegmentedTranslator({
         )
 
         try {
-          // Passar a chave da API do Gemini para a função translateText
-          const result = await translateText(segment.source, sourceLang, targetLang, apiSettings?.geminiApiKey)
+          // Passar a URL da API do LibreTranslate para a função translateText
+          const result = await translateText(segment.source, sourceLang, targetLang, apiSettings?.libreApiUrl)
           console.log(`Resultado da tradução:`, result)
 
           if (result.success && result.translation) {

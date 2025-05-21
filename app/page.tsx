@@ -15,7 +15,7 @@ import { type GlossaryTerm, loadGlossaryFromCSV } from "@/utils/glossary"
 import type { ApiSettings } from "@/components/api-settings-modal"
 import { ArrowLeftRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { STORAGE_KEYS, DEFAULT_URLS } from "@/utils/constants"
+import { STORAGE_KEYS, DEFAULT_SETTINGS, DEFAULT_URLS } from "@/utils/constants"
 import { usePersistentState } from "@/hooks/use-persistent-state"
 import { useToast } from "@/hooks/use-toast"
 
@@ -32,10 +32,7 @@ export default function TranslationPlatform() {
   const [showTM, setShowTM] = useState<boolean>(false)
   const [glossaryTerms, setGlossaryTerms] = useState<GlossaryTerm[]>([])
   const [isLoadingGlossary, setIsLoadingGlossary] = useState(false)
-  const [apiSettings, setApiSettings] = useState<ApiSettings>({
-    geminiApiKey: "",
-    useLocalStorage: true,
-  })
+  const [apiSettings, setApiSettings] = useState<ApiSettings>(DEFAULT_SETTINGS.API)
 
   // Toast para notificações
   const { toast } = useToast()
@@ -180,9 +177,6 @@ export default function TranslationPlatform() {
     }
   }
 
-  // Verificar se a chave de API está configurada
-  const isApiKeyConfigured = Boolean(apiSettings.geminiApiKey)
-
   return (
     <KeyboardShortcutsProvider>
       <main className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
@@ -230,31 +224,15 @@ export default function TranslationPlatform() {
             <div className="flex-1 overflow-auto">
               <Tabs value={viewMode} className="h-full">
                 <TabsContent value="segmented" className="mt-0 h-full">
-                  {!isApiKeyConfigured ? (
-                    <div className="p-6 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800/30 text-center">
-                      <h3 className="text-lg font-medium text-amber-800 dark:text-amber-300 mb-2">
-                        Chave de API do Gemini necessária
-                      </h3>
-                      <p className="text-amber-700 dark:text-amber-400 mb-4">
-                        Para usar a tradução automática, você precisa configurar uma chave de API do Google Gemini.
-                        Clique no botão "API Gemini" na barra de navegação para configurar.
-                      </p>
-                      <p className="text-sm text-amber-600 dark:text-amber-500">
-                        Esta aplicação utiliza o modelo Gemini 1.5 Flash para tradução automática. Você ainda pode
-                        editar e traduzir manualmente sem uma chave de API.
-                      </p>
-                    </div>
-                  ) : (
-                    <SegmentedTranslator
-                      sourceText={sourceText}
-                      targetText={targetText}
-                      onUpdateTargetText={setTargetText}
-                      sourceLang={sourceLang}
-                      targetLang={targetLang}
-                      glossaryTerms={glossaryTerms}
-                      apiSettings={apiSettings}
-                    />
-                  )}
+                  <SegmentedTranslator
+                    sourceText={sourceText}
+                    targetText={targetText}
+                    onUpdateTargetText={setTargetText}
+                    sourceLang={sourceLang}
+                    targetLang={targetLang}
+                    glossaryTerms={glossaryTerms}
+                    apiSettings={apiSettings}
+                  />
                 </TabsContent>
 
                 <TabsContent value="full" className="mt-0 h-full flex gap-4">

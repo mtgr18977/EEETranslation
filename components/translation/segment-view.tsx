@@ -9,8 +9,8 @@ import { AlignLeft, Keyboard, AlertCircle, AlertTriangle, Book, Check } from "lu
 import type { SegmentPair } from "@/utils/segmentation"
 import type { GlossaryTerm } from "@/utils/glossary"
 import type { QualityIssue } from "@/utils/quality-checks"
-import AlignedText from "@/components/aligned-text" // Updated import path
-import QualityIssuesDisplay from "../quality-issues-display" // Updated import path
+import AlignedText from "../aligned-text"
+import QualityIssuesDisplay from "../quality-issues-display"
 import SegmentEditor from "./segment-editor"
 import SegmentSource from "./segment-source"
 import SegmentSuggestion from "./segment-suggestion"

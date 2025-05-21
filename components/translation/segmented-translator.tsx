@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Loader2, Keyboard, Save, FileDown, AlertTriangle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import AlignmentLegend from "@/components/alignment-legend" // Updated import path
+import AlignmentLegend from "../alignment-legend"
 import { useKeyboardShortcuts } from "@/contexts/keyboard-shortcuts-context"
 import { useSegmentedTranslator } from "@/hooks/use-segmented-translator"
 import type { GlossaryTerm } from "@/utils/glossary"
@@ -13,7 +13,7 @@ import type { ApiSettings } from "@/components/api-settings-modal"
 import OptimizedSegmentList from "./optimized-segment-list"
 
 // Lazy load o modal de atalhos de teclado
-const KeyboardShortcutsModal = lazy(() => import("@/components/keyboard-shortcuts-modal")) // Updated import path
+const KeyboardShortcutsModal = lazy(() => import("../keyboard-shortcuts-modal"))
 
 interface SegmentedTranslatorProps {
   sourceText: string
