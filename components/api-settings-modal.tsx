@@ -5,8 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AlertCircle, Check } from "lucide-react"
+import { AlertCircle, Check, ExternalLink } from "lucide-react"
 
 interface ApiSettingsModalProps {
   isOpen: boolean
@@ -16,22 +15,19 @@ interface ApiSettingsModalProps {
 }
 
 export interface ApiSettings {
-  googleApiKey: string
-  libreApiUrl: string
+  geminiApiKey: string
   useLocalStorage: boolean
 }
 
 export default function ApiSettingsModal({ isOpen, onClose, onSaveSettings, currentSettings }: ApiSettingsModalProps) {
   const [settings, setSettings] = useState<ApiSettings>({
     ...currentSettings,
-    libreApiUrl: currentSettings.libreApiUrl || "https://pt.libretranslate.com/translate",
+    geminiApiKey: currentSettings.geminiApiKey || "",
   })
-  const [activeTab, setActiveTab] = useState("google")
   const [testStatus, setTestStatus] = useState<{
     isLoading: boolean
     success?: boolean
     message?: string
-    provider?: string
   }>({
     isLoading: false,
   })
@@ -41,8 +37,8 @@ export default function ApiSettingsModal({ isOpen, onClose, onSaveSettings, curr
     onClose()
   }
 
-  const handleTestConnection = async (provider: "google" | "libre") => {
-    setTestStatus({ isLoading: true, provider })
+  const handleTestConnection = async () => {
+    setTestStatus({ isLoading: true })
 
     try {
       // Simples teste de conexão
@@ -50,47 +46,32 @@ export default function ApiSettingsModal({ isOpen, onClose, onSaveSettings, curr
       const sourceLang = "en"
       const targetLang = "pt"
 
-      let url, body, headers
-
-      if (provider === "google") {
-        url = `https://translation.googleapis.com/language/translate/v2?key=${settings.googleApiKey}`
-        body = JSON.stringify({
-          q: testText,
-          source: sourceLang,
-          target: targetLang,
-        })
-        headers = { "Content-Type": "application/json" }
-      } else {
-        url = settings.libreApiUrl
-        body = JSON.stringify({
-          q: testText,
-          source: sourceLang,
-          target: targetLang,
-        })
-        headers = { "Content-Type": "application/json" }
-      }
-
-      const response = await fetch(url, {
+      const response = await fetch("/api/test-gemini", {
         method: "POST",
-        headers,
-        body,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: testText,
+          sourceLang,
+          targetLang,
+          apiKey: settings.geminiApiKey,
+        }),
       })
 
       const data = await response.json()
 
-      if (response.ok) {
+      if (response.ok && data.success) {
         setTestStatus({
           isLoading: false,
           success: true,
-          message: "Conexão bem-sucedida!",
-          provider,
+          message: `Conexão bem-sucedida! Tradução: "${data.translation}"`,
         })
       } else {
         setTestStatus({
           isLoading: false,
           success: false,
-          message: `Erro: ${data.error?.message || "Falha na conexão"}`,
-          provider,
+          message: `Erro: ${data.message || "Falha na conexão"}`,
         })
       }
     } catch (error) {
@@ -98,7 +79,6 @@ export default function ApiSettingsModal({ isOpen, onClose, onSaveSettings, curr
         isLoading: false,
         success: false,
         message: `Erro: ${error instanceof Error ? error.message : "Falha na conexão"}`,
-        provider,
       })
     }
   }
@@ -110,117 +90,70 @@ export default function ApiSettingsModal({ isOpen, onClose, onSaveSettings, curr
           <DialogTitle>Configurações de API de Tradução</DialogTitle>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="google">Google Translate</TabsTrigger>
-            <TabsTrigger value="libre">LibreTranslate</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="google" className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="google-api-key">Chave de API do Google Translate</Label>
-              <Input
-                id="google-api-key"
-                type="password"
-                value={settings.googleApiKey}
-                onChange={(e) => setSettings({ ...settings, googleApiKey: e.target.value })}
-                placeholder="Insira sua chave de API do Google Cloud"
-              />
-              <p className="text-xs text-muted-foreground">
+        <div className="space-y-4 mt-4">
+          <div className="space-y-2">
+            <Label htmlFor="gemini-api-key">Chave de API do Google Gemini</Label>
+            <Input
+              id="gemini-api-key"
+              type="password"
+              value={settings.geminiApiKey}
+              onChange={(e) => setSettings({ ...settings, geminiApiKey: e.target.value })}
+              placeholder="Insira sua chave de API do Google Gemini"
+            />
+            <div className="text-xs text-muted-foreground space-y-2">
+              <p>
                 Você pode obter uma chave de API no{" "}
                 <a
-                  href="https://console.cloud.google.com/apis/credentials"
+                  href="https://aistudio.google.com/app/apikey"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
+                  className="text-blue-600 hover:underline dark:text-blue-400 inline-flex items-center"
                 >
-                  Console do Google Cloud
+                  Google AI Studio
+                  <ExternalLink className="h-3 w-3 ml-1" />
                 </a>
               </p>
-            </div>
-
-            <div className="flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleTestConnection("google")}
-                disabled={!settings.googleApiKey || testStatus.isLoading}
-              >
-                {testStatus.isLoading && testStatus.provider === "google" ? (
-                  <>
-                    <span className="animate-spin mr-2">⟳</span>
-                    Testando...
-                  </>
-                ) : (
-                  "Testar Conexão"
-                )}
-              </Button>
-            </div>
-
-            {testStatus.provider === "google" && testStatus.message && (
-              <div
-                className={`p-2 text-sm rounded flex items-center ${
-                  testStatus.success ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
-                }`}
-              >
-                {testStatus.success ? <Check className="h-4 w-4 mr-2" /> : <AlertCircle className="h-4 w-4 mr-2" />}
-                {testStatus.message}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="libre" className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="libre-api-url">URL da API LibreTranslate</Label>
-              <Input
-                id="libre-api-url"
-                value={settings.libreApiUrl}
-                onChange={(e) => setSettings({ ...settings, libreApiUrl: e.target.value })}
-                placeholder="https://pt.libretranslate.com/translate"
-              />
-              <p className="text-xs text-muted-foreground">
-                LibreTranslate é uma API de tradução de código aberto. Você pode usar o serviço público ou{" "}
-                <a
-                  href="https://github.com/LibreTranslate/LibreTranslate"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
-                >
-                  hospedar sua própria instância
-                </a>
+              <p className="text-amber-600 dark:text-amber-400 flex items-start">
+                <AlertCircle className="h-4 w-4 mr-1 flex-shrink-0 mt-0.5" />
+                <span>
+                  Certifique-se de que sua chave de API tenha acesso ao modelo Gemini 1.5 Flash e que você tenha ativado
+                  a API Gemini no seu projeto Google Cloud.
+                </span>
               </p>
             </div>
+          </div>
 
-            <div className="flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleTestConnection("libre")}
-                disabled={!settings.libreApiUrl || testStatus.isLoading}
-              >
-                {testStatus.isLoading && testStatus.provider === "libre" ? (
-                  <>
-                    <span className="animate-spin mr-2">⟳</span>
-                    Testando...
-                  </>
-                ) : (
-                  "Testar Conexão"
-                )}
-              </Button>
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleTestConnection}
+              disabled={!settings.geminiApiKey || testStatus.isLoading}
+            >
+              {testStatus.isLoading ? (
+                <>
+                  <span className="animate-spin mr-2">⟳</span>
+                  Testando...
+                </>
+              ) : (
+                "Testar Conexão"
+              )}
+            </Button>
+          </div>
+
+          {testStatus.message && (
+            <div
+              className={`p-2 text-sm rounded flex items-center ${
+                testStatus.success
+                  ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300"
+                  : "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300"
+              }`}
+            >
+              {testStatus.success ? <Check className="h-4 w-4 mr-2" /> : <AlertCircle className="h-4 w-4 mr-2" />}
+              {testStatus.message}
             </div>
-
-            {testStatus.provider === "libre" && testStatus.message && (
-              <div
-                className={`p-2 text-sm rounded flex items-center ${
-                  testStatus.success ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
-                }`}
-              >
-                {testStatus.success ? <Check className="h-4 w-4 mr-2" /> : <AlertCircle className="h-4 w-4 mr-2" />}
-                {testStatus.message}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+          )}
+        </div>
 
         <div className="flex items-center space-x-2 mt-4">
           <input
@@ -228,7 +161,7 @@ export default function ApiSettingsModal({ isOpen, onClose, onSaveSettings, curr
             id="use-local-storage"
             checked={settings.useLocalStorage}
             onChange={(e) => setSettings({ ...settings, useLocalStorage: e.target.checked })}
-            className="rounded border-gray-300"
+            className="rounded border-gray-300 dark:border-gray-700"
           />
           <Label htmlFor="use-local-storage">Salvar configurações no navegador</Label>
         </div>

@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { Upload, Download, Database, Book, Keyboard, Settings } from "lucide-react"
+import { Upload, Download, Database, Book, Keyboard, Settings, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRef, useState } from "react"
 import { useKeyboardShortcuts } from "@/contexts/keyboard-shortcuts-context"
@@ -15,6 +15,7 @@ interface NavbarProps {
   onOpenTM: () => void
   onOpenGlossary: () => void
   onUpdateApiSettings?: (settings: ApiSettings) => void
+  onClearWork?: () => void
   apiSettings?: ApiSettings
 }
 
@@ -24,9 +25,9 @@ export default function Navbar({
   onOpenTM,
   onOpenGlossary,
   onUpdateApiSettings,
+  onClearWork,
   apiSettings = {
-    googleApiKey: "",
-    libreApiUrl: "https://libretranslate.de/translate",
+    geminiApiKey: "AIzaSyB5ANmjzUj251i2G3FHgV7UEV9NH4OwT18",
     useLocalStorage: true,
   },
 }: NavbarProps) {
@@ -81,6 +82,17 @@ export default function Navbar({
           <Book className="mr-2 h-4 w-4" />
           Glossário
         </Button>
+
+        {onClearWork && (
+          <Button
+            variant="outline"
+            className="text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20"
+            onClick={onClearWork}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Limpar
+          </Button>
+        )}
       </div>
 
       <div className="flex gap-2 items-center">
@@ -88,7 +100,7 @@ export default function Navbar({
 
         <Button variant="outline" size="sm" onClick={() => setIsApiSettingsOpen(true)}>
           <Settings className="mr-2 h-4 w-4" />
-          API
+          API Gemini
         </Button>
 
         <Button variant="ghost" size="sm" onClick={() => setShortcutsModalOpen(true)} className="text-muted-foreground">
