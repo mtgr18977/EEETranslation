@@ -106,7 +106,15 @@ export function useSegment({
       // Obter a URL da API do LibreTranslate das props
       const libreApiUrl = apiSettings?.libreApiUrl
 
-      const result = await translateText(segment.source, sourceLang, targetLang, libreApiUrl)
+      const result = await translateText(
+        segment.source,
+        sourceLang,
+        targetLang,
+        libreApiUrl,
+        undefined,
+        undefined,
+        "gemini",
+      )
 
       if (result.success && result.translation) {
         setSuggestion(result.translation)

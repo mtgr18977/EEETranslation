@@ -114,6 +114,7 @@ const SegmentTranslator = memo(
           undefined,
           undefined,
           undefined,
+          "gemini",
         )
 
         if (result.success && result.translation) {
