@@ -33,6 +33,7 @@ export default function TranslationPlatform() {
   const [glossaryTerms, setGlossaryTerms] = useState<GlossaryTerm[]>([])
   const [isLoadingGlossary, setIsLoadingGlossary] = useState(false)
   const [apiSettings, setApiSettings] = useState<ApiSettings>({
+    provider: "gemini",
     geminiApiKey: "",
     openaiApiKey: "",
     anthropicApiKey: "",
@@ -48,7 +49,7 @@ export default function TranslationPlatform() {
     if (savedSettings) {
       try {
         const parsedSettings = JSON.parse(savedSettings)
-        setApiSettings(parsedSettings)
+        setApiSettings({ provider: "gemini", ...parsedSettings })
       } catch (error) {
         console.error("Erro ao carregar configurações de API:", error)
       }
@@ -184,7 +185,9 @@ export default function TranslationPlatform() {
 
   // Verificar se a chave de API está configurada
   const isApiKeyConfigured = Boolean(
-    apiSettings.geminiApiKey || apiSettings.openaiApiKey || apiSettings.anthropicApiKey,
+    (apiSettings.provider === "gemini" && apiSettings.geminiApiKey) ||
+      (apiSettings.provider === "openai" && apiSettings.openaiApiKey) ||
+      (apiSettings.provider === "anthropic" && apiSettings.anthropicApiKey),
   )
 
   return (

@@ -256,6 +256,7 @@ export function useSegmentedTranslator({
             apiSettings?.geminiApiKey,
             apiSettings?.openaiApiKey,
             apiSettings?.anthropicApiKey,
+            apiSettings?.provider || "gemini",
           )
           console.log(`Resultado da tradução:`, result)
 

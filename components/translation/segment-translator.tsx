@@ -107,6 +107,7 @@ const SegmentTranslator = memo(
         const geminiApiKey = apiSettings?.geminiApiKey
         const openaiApiKey = apiSettings?.openaiApiKey
         const anthropicApiKey = apiSettings?.anthropicApiKey
+        const provider = apiSettings?.provider || "gemini"
 
         const result = await translateText(
           segment.source,
@@ -115,6 +116,7 @@ const SegmentTranslator = memo(
           geminiApiKey,
           openaiApiKey,
           anthropicApiKey,
+          provider,
         )
 
         if (result.success && result.translation) {

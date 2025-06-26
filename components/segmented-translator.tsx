@@ -290,6 +290,7 @@ export default function SegmentedTranslator({
             apiSettings?.geminiApiKey,
             apiSettings?.openaiApiKey,
             apiSettings?.anthropicApiKey,
+            apiSettings?.provider || "gemini",
           )
           console.log(`Resultado da tradução:`, result)
 

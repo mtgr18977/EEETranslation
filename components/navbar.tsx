@@ -27,6 +27,7 @@ export default function Navbar({
   onUpdateApiSettings,
   onClearWork,
   apiSettings = {
+    provider: "gemini",
     geminiApiKey: "AIzaSyB5ANmjzUj251i2G3FHgV7UEV9NH4OwT18",
     openaiApiKey: "",
     anthropicApiKey: "",

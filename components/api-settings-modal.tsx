@@ -5,6 +5,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { AlertCircle, Check, ExternalLink } from "lucide-react"
 
 interface ApiSettingsModalProps {
@@ -15,6 +22,7 @@ interface ApiSettingsModalProps {
 }
 
 export interface ApiSettings {
+  provider: "gemini" | "openai" | "anthropic"
   geminiApiKey: string
   openaiApiKey: string
   anthropicApiKey: string
@@ -24,6 +32,7 @@ export interface ApiSettings {
 export default function ApiSettingsModal({ isOpen, onClose, onSaveSettings, currentSettings }: ApiSettingsModalProps) {
   const [settings, setSettings] = useState<ApiSettings>({
     ...currentSettings,
+    provider: currentSettings.provider || "gemini",
     geminiApiKey: currentSettings.geminiApiKey || "",
     openaiApiKey: currentSettings.openaiApiKey || "",
     anthropicApiKey: currentSettings.anthropicApiKey || "",
@@ -95,6 +104,25 @@ export default function ApiSettingsModal({ isOpen, onClose, onSaveSettings, curr
         </DialogHeader>
 
         <div className="space-y-4 mt-4">
+          <div className="space-y-2">
+            <Label htmlFor="provider-select">Provedor de Tradução</Label>
+            <Select
+              value={settings.provider}
+              onValueChange={(value) =>
+                setSettings({ ...settings, provider: value as "gemini" | "openai" | "anthropic" })
+              }
+            >
+              <SelectTrigger id="provider-select" className="w-full">
+                <SelectValue placeholder="Selecione o provedor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="gemini">Google Gemini</SelectItem>
+                <SelectItem value="openai">OpenAI</SelectItem>
+                <SelectItem value="anthropic">Anthropic</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="gemini-api-key">Chave de API do Google Gemini</Label>
             <Input
