@@ -35,8 +35,7 @@ Plataforma de tradução para textos técnicos construída com [Next.js](https:/
 - `pnpm dev` &ndash; executa a aplicação em modo de desenvolvimento.
 - `pnpm build` &ndash; gera os arquivos otimizados para produção.
 - `pnpm lint` &ndash; executa o linter do Next.js.
-
-Os testes automatizados ficam em `__tests__`, mas não há um script de execução configurado no `package.json`.
+- `pnpm test` &ndash; roda a suíte de testes com Jest.
 
 ## Estrutura do projeto
 
