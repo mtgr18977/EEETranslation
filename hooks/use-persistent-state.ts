@@ -5,35 +5,37 @@ import { useState, useEffect } from "react"
 export function usePersistentState<T>(
   key: string,
   initialValue: T,
-  storage: Storage = typeof window !== "undefined" ? localStorage : null,
+  storage?: Storage,
 ): [T, (value: T | ((val: T) => T)) => void] {
+  const resolvedStorage: Storage | null =
+    storage ?? (typeof window !== "undefined" ? window.localStorage : null)
   // Criar estado com valor inicial
   const [state, setState] = useState<T>(initialValue)
 
   // Carregar valor do localStorage na montagem do componente
   useEffect(() => {
-    if (!storage) return
+    if (!resolvedStorage) return
 
     try {
-      const item = storage.getItem(key)
+      const item = resolvedStorage.getItem(key)
       if (item) {
         setState(JSON.parse(item))
       }
     } catch (error) {
       console.error(`Erro ao carregar estado persistente para ${key}:`, error)
     }
-  }, [key, storage])
+  }, [key, resolvedStorage])
 
   // Atualizar localStorage quando o estado mudar
   useEffect(() => {
-    if (!storage) return
+    if (!resolvedStorage) return
 
     try {
-      storage.setItem(key, JSON.stringify(state))
+      resolvedStorage.setItem(key, JSON.stringify(state))
     } catch (error) {
       console.error(`Erro ao salvar estado persistente para ${key}:`, error)
     }
-  }, [key, state, storage])
+  }, [key, state, resolvedStorage])
 
   return [state, setState]
 }
