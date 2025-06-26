@@ -236,8 +236,8 @@ export default function TranslationPlatform() {
 
             <div className="flex-1 overflow-auto">
               <Tabs value={viewMode} className="h-full">
-                <TabsContent value="segmented" className="mt-0 h-full">
-                  {!isApiKeyConfigured ? (
+                <TabsContent value="segmented" className="mt-0 h-full space-y-4">
+                  {!isApiKeyConfigured && (
                     <div className="p-6 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800/30 text-center">
                       <h3 className="text-lg font-medium text-amber-800 dark:text-amber-300 mb-2">
                         Chave de API necessária
@@ -250,17 +250,16 @@ export default function TranslationPlatform() {
                         Você ainda pode editar e traduzir manualmente sem uma chave de API.
                       </p>
                     </div>
-                  ) : (
-                    <SegmentedTranslator
-                      sourceText={sourceText}
-                      targetText={targetText}
-                      onUpdateTargetText={setTargetText}
-                      sourceLang={sourceLang}
-                      targetLang={targetLang}
-                      glossaryTerms={glossaryTerms}
-                      apiSettings={apiSettings}
-                    />
                   )}
+                  <SegmentedTranslator
+                    sourceText={sourceText}
+                    targetText={targetText}
+                    onUpdateTargetText={setTargetText}
+                    sourceLang={sourceLang}
+                    targetLang={targetLang}
+                    glossaryTerms={glossaryTerms}
+                    apiSettings={apiSettings}
+                  />
                 </TabsContent>
 
                 <TabsContent value="full" className="mt-0 h-full flex gap-4">
