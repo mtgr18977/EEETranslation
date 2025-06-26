@@ -16,6 +16,8 @@ interface ApiSettingsModalProps {
 
 export interface ApiSettings {
   geminiApiKey: string
+  openaiApiKey: string
+  anthropicApiKey: string
   useLocalStorage: boolean
 }
 
@@ -23,6 +25,8 @@ export default function ApiSettingsModal({ isOpen, onClose, onSaveSettings, curr
   const [settings, setSettings] = useState<ApiSettings>({
     ...currentSettings,
     geminiApiKey: currentSettings.geminiApiKey || "",
+    openaiApiKey: currentSettings.openaiApiKey || "",
+    anthropicApiKey: currentSettings.anthropicApiKey || "",
   })
   const [testStatus, setTestStatus] = useState<{
     isLoading: boolean
@@ -153,6 +157,30 @@ export default function ApiSettingsModal({ isOpen, onClose, onSaveSettings, curr
               {testStatus.message}
             </div>
           )}
+        </div>
+
+        <div className="space-y-4 mt-4">
+          <div className="space-y-2">
+            <Label htmlFor="openai-api-key">Chave de API da OpenAI</Label>
+            <Input
+              id="openai-api-key"
+              type="password"
+              value={settings.openaiApiKey}
+              onChange={(e) => setSettings({ ...settings, openaiApiKey: e.target.value })}
+              placeholder="Insira sua chave da OpenAI"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="anthropic-api-key">Chave de API da Anthropic</Label>
+            <Input
+              id="anthropic-api-key"
+              type="password"
+              value={settings.anthropicApiKey}
+              onChange={(e) => setSettings({ ...settings, anthropicApiKey: e.target.value })}
+              placeholder="Insira sua chave da Anthropic"
+            />
+          </div>
         </div>
 
         <div className="flex items-center space-x-2 mt-4">

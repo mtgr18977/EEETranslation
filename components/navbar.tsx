@@ -28,6 +28,8 @@ export default function Navbar({
   onClearWork,
   apiSettings = {
     geminiApiKey: "AIzaSyB5ANmjzUj251i2G3FHgV7UEV9NH4OwT18",
+    openaiApiKey: "",
+    anthropicApiKey: "",
     useLocalStorage: true,
   },
 }: NavbarProps) {
@@ -100,7 +102,7 @@ export default function Navbar({
 
         <Button variant="outline" size="sm" onClick={() => setIsApiSettingsOpen(true)}>
           <Settings className="mr-2 h-4 w-4" />
-          API Gemini
+          APIs
         </Button>
 
         <Button variant="ghost" size="sm" onClick={() => setShortcutsModalOpen(true)} className="text-muted-foreground">

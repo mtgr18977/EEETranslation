@@ -34,6 +34,8 @@ export default function TranslationPlatform() {
   const [isLoadingGlossary, setIsLoadingGlossary] = useState(false)
   const [apiSettings, setApiSettings] = useState<ApiSettings>({
     geminiApiKey: "",
+    openaiApiKey: "",
+    anthropicApiKey: "",
     useLocalStorage: true,
   })
 
@@ -181,7 +183,9 @@ export default function TranslationPlatform() {
   }
 
   // Verificar se a chave de API está configurada
-  const isApiKeyConfigured = Boolean(apiSettings.geminiApiKey)
+  const isApiKeyConfigured = Boolean(
+    apiSettings.geminiApiKey || apiSettings.openaiApiKey || apiSettings.anthropicApiKey,
+  )
 
   return (
     <KeyboardShortcutsProvider>
@@ -233,15 +237,14 @@ export default function TranslationPlatform() {
                   {!isApiKeyConfigured ? (
                     <div className="p-6 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800/30 text-center">
                       <h3 className="text-lg font-medium text-amber-800 dark:text-amber-300 mb-2">
-                        Chave de API do Gemini necessária
+                        Chave de API necessária
                       </h3>
                       <p className="text-amber-700 dark:text-amber-400 mb-4">
-                        Para usar a tradução automática, você precisa configurar uma chave de API do Google Gemini.
-                        Clique no botão "API Gemini" na barra de navegação para configurar.
+                        Para usar a tradução automática, configure uma chave de API nos ajustes de API.
+                        Clique no botão "APIs" na barra de navegação para inserir suas chaves do Gemini, OpenAI ou Anthropic.
                       </p>
                       <p className="text-sm text-amber-600 dark:text-amber-500">
-                        Esta aplicação utiliza o modelo Gemini 1.5 Flash para tradução automática. Você ainda pode
-                        editar e traduzir manualmente sem uma chave de API.
+                        Você ainda pode editar e traduzir manualmente sem uma chave de API.
                       </p>
                     </div>
                   ) : (

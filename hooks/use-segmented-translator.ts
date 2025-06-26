@@ -248,8 +248,15 @@ export function useSegmentedTranslator({
         )
 
         try {
-          // Passar a chave da API do Gemini para a função translateText
-          const result = await translateText(segment.source, sourceLang, targetLang, apiSettings?.geminiApiKey)
+          // Passar as chaves de API configuradas para a função translateText
+          const result = await translateText(
+            segment.source,
+            sourceLang,
+            targetLang,
+            apiSettings?.geminiApiKey,
+            apiSettings?.openaiApiKey,
+            apiSettings?.anthropicApiKey,
+          )
           console.log(`Resultado da tradução:`, result)
 
           if (result.success && result.translation) {

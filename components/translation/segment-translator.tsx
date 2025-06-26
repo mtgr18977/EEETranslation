@@ -28,7 +28,7 @@ interface SegmentTranslatorProps {
   onActivate: () => void
   glossaryTerms?: GlossaryTerm[]
   isFailedSegment?: boolean
-  apiSettings?: { geminiApiKey?: string }
+  apiSettings?: { geminiApiKey?: string; openaiApiKey?: string; anthropicApiKey?: string }
 }
 
 // Usar memo para evitar renderizações desnecessárias
@@ -104,10 +104,18 @@ const SegmentTranslator = memo(
       setTranslationError(null)
 
       try {
-        // Obter a chave da API do Gemini das props
         const geminiApiKey = apiSettings?.geminiApiKey
+        const openaiApiKey = apiSettings?.openaiApiKey
+        const anthropicApiKey = apiSettings?.anthropicApiKey
 
-        const result = await translateText(segment.source, sourceLang, targetLang, geminiApiKey)
+        const result = await translateText(
+          segment.source,
+          sourceLang,
+          targetLang,
+          geminiApiKey,
+          openaiApiKey,
+          anthropicApiKey,
+        )
 
         if (result.success && result.translation) {
           setSuggestion(result.translation)

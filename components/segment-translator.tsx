@@ -107,7 +107,14 @@ const SegmentTranslator = memo(
         // Obter a URL da API do LibreTranslate das props
         const libreApiUrl = apiSettings?.libreApiUrl
 
-        const result = await translateText(segment.source, sourceLang, targetLang, libreApiUrl)
+        const result = await translateText(
+          segment.source,
+          sourceLang,
+          targetLang,
+          undefined,
+          undefined,
+          undefined,
+        )
 
         if (result.success && result.translation) {
           setSuggestion(result.translation)

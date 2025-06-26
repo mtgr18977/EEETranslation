@@ -34,7 +34,14 @@ export default function TranslationSuggestions({
     setError(null)
 
     try {
-      const result = await translateText(sourceText, sourceLang, targetLang)
+      const result = await translateText(
+        sourceText,
+        sourceLang,
+        targetLang,
+        undefined,
+        undefined,
+        undefined,
+      )
 
       if (result.success && result.translation) {
         setSuggestion(result.translation)
