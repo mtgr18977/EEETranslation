@@ -13,22 +13,22 @@ Plataforma de tradução para textos técnicos construída com [Next.js](https:/
 
 1. Clone o repositório e instale as dependências:
 
-   ```bash
+   \`\`\`bash
    pnpm install
-   ```
+   \`\`\`
 
 2. Inicie o servidor de desenvolvimento:
 
-   ```bash
+   \`\`\`bash
    pnpm dev
-   ```
+   \`\`\`
 
 3. Para criar uma build de produção:
 
-   ```bash
+   \`\`\`bash
    pnpm build
    pnpm start
-   ```
+   \`\`\`
 
 ## Scripts úteis
 
@@ -40,14 +40,14 @@ Os testes automatizados ficam em `__tests__`, mas não há um script de execuç�
 
 ## Estrutura do projeto
 
-```
+\`\`\`
 app/             # páginas e rotas do Next.js
 components/      # componentes reutilizáveis
 contexts/        # contextos React para estado global
 hooks/           # hooks personalizados
 public/          # arquivos públicos (imagens, etc.)
 utils/           # utilidades e serviços de API
-```
+\`\`\`
 
 A pasta `app/actions` contém funções para chamadas de tradução no servidor, enquanto `styles/globals.css` define o estilo base.
 
