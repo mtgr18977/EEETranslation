@@ -1,12 +1,13 @@
 import type React from "react"
+import type { Metadata } from "next"
+import { GeistSans } from "geist/font/sans"
+import { GeistMono } from "geist/font/mono"
 import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
 
-// Modificar o título da página para "EeeTranslation"
-export const metadata = {
-  title: "EeeTranslation",
-  description: "Translation platform for tech writing",
-    generator: 'v0.dev'
+export const metadata: Metadata = {
+  title: "Tradutor - Memória de Tradução",
+  description: "Aplicativo para criar e gerenciar memórias de tradução PT-EN",
+  generator: "v0.app",
 }
 
 export default function RootLayout({
@@ -15,12 +16,17 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          {children}
-        </ThemeProvider>
-      </body>
+    <html lang="pt-BR">
+      <head>
+        <style>{`
+html {
+  font-family: ${GeistSans.style.fontFamily};
+  --font-sans: ${GeistSans.variable};
+  --font-mono: ${GeistMono.variable};
+}
+        `}</style>
+      </head>
+      <body>{children}</body>
     </html>
   )
 }
