@@ -44,15 +44,9 @@ export default function SegmentSource({ segment, highlightedTerms }: SegmentSour
               <p className="font-medium">{term.term}</p>
               <p className="text-xs">{term.definition}</p>
               {term.relatedUrl && (
-                <a
-                  href={term.relatedUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-blue-600 hover:underline flex items-center"
-                >
+                <ExternalLink href={term.relatedUrl} className="text-xs text-blue-600 hover:underline">
                   {term.relatedName || term.relatedUrl}
-                  <ExternalLink className="h-3 w-3 ml-1" />
-                </a>
+                </ExternalLink>
               )}
             </div>
           </TooltipContent>

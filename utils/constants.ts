@@ -24,8 +24,7 @@ export const SUPPORTED_LANGUAGES = [
 // URLs padrão
 export const DEFAULT_URLS = {
   LIBRE_TRANSLATE: "https://pt.libretranslate.com/translate",
-  GLOSSARY:
-    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/knowledge-share-terms-2025-04-28-w7A52xOLZShJKyLh1KN2WzIPADca84.csv",
+  GLOSSARY: "",
 }
 
 // Configurações padrão

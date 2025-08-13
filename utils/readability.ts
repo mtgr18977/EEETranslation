@@ -454,3 +454,111 @@ export function getReadabilityLevelDescription(
       return "Desconhecido"
   }
 }
+
+/**
+ * Get quick readability assessment with actionable insights
+ */
+export function getReadabilityInsights(
+  text: string,
+  lang: string,
+): {
+  level: "very-easy" | "easy" | "medium" | "difficult" | "very-difficult"
+  score: number
+  tips: string[]
+  metrics: {
+    avgWordsPerSentence: number
+    avgSyllablesPerWord: number
+    complexWordPercentage: number
+  }
+} {
+  const readability = calculateReadability(text, lang)
+  const words = countWords(text)
+  const sentences = countSentences(text)
+  const syllables = (text.match(/\b\w+\b/g) || []).reduce((total, word) => total + countSyllables(word, lang), 0)
+  const complexWords = countComplexWords(text, lang)
+
+  const metrics = {
+    avgWordsPerSentence: words / sentences,
+    avgSyllablesPerWord: syllables / words,
+    complexWordPercentage: (complexWords / words) * 100,
+  }
+
+  const tips: string[] = []
+
+  // Generate specific tips based on metrics
+  if (metrics.avgWordsPerSentence > 20) {
+    tips.push("Frases muito longas. Tente dividir em frases menores (máximo 15-20 palavras)")
+  }
+
+  if (metrics.complexWordPercentage > 15) {
+    tips.push("Muitas palavras complexas. Substitua por sinônimos mais simples quando possível")
+  }
+
+  if (metrics.avgSyllablesPerWord > 2) {
+    tips.push("Palavras com muitas sílabas. Use palavras mais curtas para melhorar a fluência")
+  }
+
+  if (readability.flesch.score < 30) {
+    tips.push("Texto muito difícil. Considere reescrever com linguagem mais acessível")
+  } else if (readability.flesch.score > 90) {
+    tips.push("Texto muito simples. Pode ser adequado para público infantil")
+  }
+
+  if (tips.length === 0) {
+    tips.push("Leiturabilidade adequada para o público-alvo")
+  }
+
+  return {
+    level: readability.flesch.level,
+    score: readability.flesch.score,
+    tips,
+    metrics,
+  }
+}
+
+/**
+ * Compare readability between two texts
+ */
+export function compareReadability(
+  sourceText: string,
+  targetText: string,
+  sourceLang: string,
+  targetLang: string,
+): {
+  sourceReadability: ReadabilityResult
+  targetReadability: ReadabilityResult
+  comparison: {
+    fleschDifference: number
+    levelChange: "improved" | "maintained" | "decreased"
+    recommendation: string
+  }
+} {
+  const sourceReadability = calculateReadability(sourceText, sourceLang)
+  const targetReadability = calculateReadability(targetText, targetLang)
+
+  const fleschDifference = targetReadability.flesch.score - sourceReadability.flesch.score
+
+  let levelChange: "improved" | "maintained" | "decreased"
+  let recommendation: string
+
+  if (Math.abs(fleschDifference) < 5) {
+    levelChange = "maintained"
+    recommendation = "A leiturabilidade foi mantida na tradução"
+  } else if (fleschDifference > 0) {
+    levelChange = "improved"
+    recommendation = "A tradução ficou mais fácil de ler que o original"
+  } else {
+    levelChange = "decreased"
+    recommendation = "A tradução ficou mais difícil de ler. Considere simplificar"
+  }
+
+  return {
+    sourceReadability,
+    targetReadability,
+    comparison: {
+      fleschDifference,
+      levelChange,
+      recommendation,
+    },
+  }
+}

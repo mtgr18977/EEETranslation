@@ -9,6 +9,10 @@ export type QualityIssueType =
   | "missing-punctuation"
   | "length-ratio"
   | "untranslated-term"
+  | "consistency"
+  | "capitalization"
+  | "spacing"
+  | "glossary-consistency"
 
 /**
  * Representa um problema de qualidade encontrado na tradução
@@ -258,6 +262,116 @@ function checkUntranslatedTerms(source: string, target: string): QualityIssue[] 
 }
 
 /**
+ * Check for consistency issues in translation
+ */
+function checkConsistency(source: string, target: string): QualityIssue[] {
+  const issues: QualityIssue[] = []
+
+  // Check for repeated words that might indicate copy-paste errors
+  const targetWords = target.toLowerCase().split(/\s+/)
+  const wordCounts = targetWords.reduce(
+    (acc, word) => {
+      if (word.length > 3) {
+        // Only check words longer than 3 characters
+        acc[word] = (acc[word] || 0) + 1
+      }
+      return acc
+    },
+    {} as Record<string, number>,
+  )
+
+  Object.entries(wordCounts).forEach(([word, count]) => {
+    if (count > 3) {
+      // If a word appears more than 3 times
+      issues.push({
+        type: "consistency",
+        description: `A palavra "${word}" aparece ${count} vezes, verifique se não há repetição desnecessária`,
+        targetText: word,
+        severity: "warning",
+      })
+    }
+  })
+
+  return issues
+}
+
+/**
+ * Check capitalization consistency
+ */
+function checkCapitalization(source: string, target: string): QualityIssue[] {
+  const issues: QualityIssue[] = []
+
+  // Check if source starts with capital but target doesn't
+  const sourceStartsCapital = /^[A-ZÀ-Ÿ]/.test(source.trim())
+  const targetStartsCapital = /^[A-ZÀ-Ÿ]/.test(target.trim())
+
+  if (sourceStartsCapital && !targetStartsCapital) {
+    issues.push({
+      type: "capitalization",
+      description: "O texto fonte inicia com maiúscula, mas a tradução não",
+      severity: "warning",
+    })
+  }
+
+  return issues
+}
+
+/**
+ * Check spacing issues
+ */
+function checkSpacing(source: string, target: string): QualityIssue[] {
+  const issues: QualityIssue[] = []
+
+  // Check for double spaces
+  if (target.includes("  ")) {
+    issues.push({
+      type: "spacing",
+      description: "Espaços duplos encontrados na tradução",
+      severity: "warning",
+    })
+  }
+
+  // Check for leading/trailing spaces
+  if (target !== target.trim()) {
+    issues.push({
+      type: "spacing",
+      description: "Espaços desnecessários no início ou fim da tradução",
+      severity: "warning",
+    })
+  }
+
+  return issues
+}
+
+/**
+ * Check glossary consistency
+ */
+function checkGlossaryConsistency(source: string, target: string, glossaryTerms: any[]): QualityIssue[] {
+  const issues: QualityIssue[] = []
+
+  for (const term of glossaryTerms) {
+    const sourceRegex = new RegExp(`\\b${escapeRegExp(term.term)}\\b`, "gi")
+    const targetRegex = new RegExp(`\\b${escapeRegExp(term.definition)}\\b`, "gi")
+
+    if (sourceRegex.test(source) && !targetRegex.test(target)) {
+      issues.push({
+        type: "glossary-consistency",
+        description: `Termo do glossário "${term.term}" não foi traduzido como "${term.definition}"`,
+        sourceText: term.term,
+        targetText: term.definition,
+        severity: "error",
+      })
+    }
+  }
+
+  return issues
+}
+
+function escapeRegExp(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+/**
  * Executa todas as verificações de qualidade em um par de segmentos
  */
 export function runQualityChecks(source: string, target: string): QualityIssue[] {
@@ -270,7 +384,34 @@ export function runQualityChecks(source: string, target: string): QualityIssue[]
     ...checkPunctuation(source, target),
     ...checkLength(source, target),
     ...checkUntranslatedTerms(source, target),
+    ...checkConsistency(source, target),
+    ...checkCapitalization(source, target),
+    ...checkSpacing(source, target),
   ]
+}
+
+/**
+ * Enhanced quality checks with more comprehensive validation
+ */
+export function runEnhancedQualityChecks(source: string, target: string, glossaryTerms?: any[]): QualityIssue[] {
+  if (!target.trim()) return []
+
+  const issues = [
+    ...checkNumbers(source, target),
+    ...checkTags(source, target),
+    ...checkPunctuation(source, target),
+    ...checkLength(source, target),
+    ...checkUntranslatedTerms(source, target),
+    ...checkConsistency(source, target),
+    ...checkCapitalization(source, target),
+    ...checkSpacing(source, target),
+  ]
+
+  if (glossaryTerms && glossaryTerms.length > 0) {
+    issues.push(...checkGlossaryConsistency(source, target, glossaryTerms))
+  }
+
+  return issues
 }
 
 /**
@@ -292,11 +433,16 @@ export function getIssueTypeIcon(type: QualityIssueType): string {
     case "malformed-tag":
       return "code"
     case "missing-punctuation":
+    case "capitalization":
+    case "spacing":
       return "type"
     case "length-ratio":
       return "ruler"
     case "untranslated-term":
+    case "glossary-consistency":
       return "book"
+    case "consistency":
+      return "repeat"
     default:
       return "alert-circle"
   }

@@ -21,6 +21,9 @@ export async function translateText(
   openaiApiKey?: string,
   anthropicApiKey?: string,
   provider: "gemini" | "openai" | "anthropic" = "gemini",
+  geminiModel = "gemini-1.5-flash",
+  openaiModel = "gpt-4o",
+  anthropicModel = "claude-3-5-sonnet-20241022",
 ) {
   if (!text.trim()) {
     return {
@@ -30,103 +33,161 @@ export async function translateText(
     }
   }
 
-  let result
+  // Define provider priority order based on primary provider
+  const getProviderOrder = (primaryProvider: string) => {
+    const allProviders = ["gemini", "openai", "anthropic"]
+    const otherProviders = allProviders.filter((p) => p !== primaryProvider)
+    return [primaryProvider, ...otherProviders]
+  }
 
+  // Check which providers have API keys
+  const availableProviders = []
+  if (geminiApiKey) availableProviders.push("gemini")
+  if (openaiApiKey) availableProviders.push("openai")
+  if (anthropicApiKey) availableProviders.push("anthropic")
+
+  if (availableProviders.length === 0) {
+    return {
+      success: false,
+      message: "No API keys provided",
+      error: ErrorService.createError(ERROR_TYPES.VALIDATION, "Nenhuma chave de API fornecida"),
+    }
+  }
+
+  const providerOrder = getProviderOrder(provider).filter((p) => availableProviders.includes(p))
+  const failedProviders: Array<{ provider: string; error: any }> = []
+
+  console.log(`Tentando tradução com provedores na ordem: ${providerOrder.join(" → ")}`)
+
+  // Try each provider in order until one succeeds
+  for (const currentProvider of providerOrder) {
+    console.log(`Tentando provedor: ${currentProvider}`)
+
+    try {
+      const result = await tryProvider(
+        currentProvider as "gemini" | "openai" | "anthropic",
+        text,
+        sourceLang,
+        targetLang,
+        { geminiApiKey, openaiApiKey, anthropicApiKey },
+        { geminiModel, openaiModel, anthropicModel },
+      )
+
+      if (result.success && result.translation) {
+        console.log(`Sucesso com ${currentProvider}: "${result.translation.substring(0, 30)}..."`)
+        return {
+          ...result,
+          usedProvider: currentProvider,
+          fallbackUsed: currentProvider !== provider,
+        }
+      } else {
+        failedProviders.push({ provider: currentProvider, error: result.error })
+        console.log(`Falha com ${currentProvider}: ${result.message}`)
+      }
+    } catch (error) {
+      const errorObj = ErrorService.createError(
+        ERROR_TYPES.NETWORK,
+        error instanceof Error ? error.message : "Erro desconhecido",
+        { error },
+      )
+      failedProviders.push({ provider: currentProvider, error: errorObj })
+      console.error(`Erro com ${currentProvider}:`, error)
+    }
+  }
+
+  // All providers failed
+  console.error("Todos os provedores falharam:", failedProviders)
+  return {
+    success: false,
+    message: `Falha na tradução com todos os provedores disponíveis (${providerOrder.join(", ")})`,
+    error: ErrorService.createError(ERROR_TYPES.API, "Todos os provedores falharam"),
+    details: {
+      failedProviders,
+      triedProviders: providerOrder,
+    },
+  }
+}
+
+async function tryProvider(
+  provider: "gemini" | "openai" | "anthropic",
+  text: string,
+  sourceLang: string,
+  targetLang: string,
+  apiKeys: { geminiApiKey?: string; openaiApiKey?: string; anthropicApiKey?: string },
+  models: { geminiModel: string; openaiModel: string; anthropicModel: string },
+) {
   switch (provider) {
     case "gemini":
-      if (!geminiApiKey) {
+      if (!apiKeys.geminiApiKey) {
         return {
           success: false,
-          message: "API key is required",
-          error: ErrorService.createError(
-            ERROR_TYPES.VALIDATION,
-            "Chave de API do Gemini não fornecida",
-          ),
+          message: "Gemini API key is required",
+          error: ErrorService.createError(ERROR_TYPES.VALIDATION, "Chave de API do Gemini não fornecida"),
         }
       }
 
-    console.log(
-      `Traduzindo texto: "${text.substring(0, 30)}..." de ${sourceLang} para ${targetLang} usando Gemini`,
-    )
+      console.log(`Traduzindo com Gemini ${models.geminiModel}`)
 
-    let geminiError = null
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      if (attempt > 0) {
-        console.log(`Tentativa ${attempt} com Gemini após falha anterior`)
-        await wait(RETRY_DELAY * attempt)
-      }
+      // Try with retries for Gemini
+      let geminiError = null
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        if (attempt > 0) {
+          console.log(`Tentativa ${attempt + 1} com Gemini após falha anterior`)
+          await wait(RETRY_DELAY * attempt)
+        }
 
-      try {
-        console.log(
-          `Fazendo requisição para Gemini (tentativa ${attempt + 1}/${MAX_RETRIES + 1})`,
-        )
-        result = await translateWithGemini(text, sourceLang, targetLang, geminiApiKey)
-        if (result.success && result.translation) {
-          console.log(`Tradução recebida do Gemini: "${result.translation.substring(0, 30)}..."`)
-          return result
-        } else {
-          console.error("Erro na tradução com Gemini:", result.message)
-          geminiError = result.error || ErrorService.createError(
-            ERROR_TYPES.API,
-            result.message || "Erro desconhecido",
+        try {
+          const result = await translateWithGemini(
+            text,
+            sourceLang,
+            targetLang,
+            apiKeys.geminiApiKey,
+            models.geminiModel,
+          )
+          if (result.success && result.translation) {
+            return result
+          } else {
+            geminiError =
+              result.error || ErrorService.createError(ERROR_TYPES.API, result.message || "Erro desconhecido")
+          }
+        } catch (error) {
+          geminiError = ErrorService.createError(
+            ERROR_TYPES.NETWORK,
+            error instanceof Error ? error.message : "Erro desconhecido",
+            { error },
           )
         }
-      } catch (error) {
-        console.error("Erro ao chamar Gemini:", error)
-        geminiError = ErrorService.createError(
-          ERROR_TYPES.NETWORK,
-          error instanceof Error ? error.message : "Erro desconhecido",
-          { error },
-        )
       }
-    }
 
-    console.log(`Gemini falhou após ${MAX_RETRIES + 1} tentativas. Erro:`, geminiError)
-      break
+      return {
+        success: false,
+        message: `Gemini falhou após ${MAX_RETRIES + 1} tentativas`,
+        error: geminiError,
+      }
 
     case "openai":
-      if (!openaiApiKey) {
+      if (!apiKeys.openaiApiKey) {
         return {
           success: false,
-          message: "API key is required",
-          error: ErrorService.createError(
-            ERROR_TYPES.VALIDATION,
-            "Chave de API do OpenAI não fornecida",
-          ),
+          message: "OpenAI API key is required",
+          error: ErrorService.createError(ERROR_TYPES.VALIDATION, "Chave de API do OpenAI não fornecida"),
         }
       }
 
-      console.log(
-        `Traduzindo texto: "${text.substring(0, 30)}..." de ${sourceLang} para ${targetLang} usando OpenAI`,
-      )
-      result = await translateWithOpenAI(text, sourceLang, targetLang, openaiApiKey)
-      if (result.success && result.translation) {
-        return result
-      }
-      console.error("Falha na tradução com OpenAI:", result.message)
-      break
+      console.log(`Traduzindo com OpenAI ${models.openaiModel}`)
+      return await translateWithOpenAI(text, sourceLang, targetLang, apiKeys.openaiApiKey, models.openaiModel)
 
     case "anthropic":
-      if (!anthropicApiKey) {
+      if (!apiKeys.anthropicApiKey) {
         return {
           success: false,
-          message: "API key is required",
-          error: ErrorService.createError(
-            ERROR_TYPES.VALIDATION,
-            "Chave de API da Anthropic não fornecida",
-          ),
+          message: "Anthropic API key is required",
+          error: ErrorService.createError(ERROR_TYPES.VALIDATION, "Chave de API da Anthropic não fornecida"),
         }
       }
 
-    console.log(
-      `Traduzindo texto: "${text.substring(0, 30)}..." de ${sourceLang} para ${targetLang} usando Anthropic`,
-    )
-      result = await translateWithAnthropic(text, sourceLang, targetLang, anthropicApiKey)
-      if (result.success && result.translation) {
-        return result
-      }
-      console.error("Falha na tradução com Anthropic:", result.message)
-      break
+      console.log(`Traduzindo com Anthropic ${models.anthropicModel}`)
+      return await translateWithAnthropic(text, sourceLang, targetLang, apiKeys.anthropicApiKey, models.anthropicModel)
 
     default:
       return {
@@ -134,14 +195,5 @@ export async function translateText(
         message: "Provedor desconhecido",
         error: ErrorService.createError(ERROR_TYPES.VALIDATION, "Provedor desconhecido"),
       }
-  }
-
-  return {
-    success: false,
-    message: "Falha na tradução com o provedor selecionado.",
-    error: ErrorService.createError(
-      ERROR_TYPES.API,
-      "Falha na tradução",
-    ),
   }
 }

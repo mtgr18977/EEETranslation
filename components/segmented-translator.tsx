@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import SegmentTranslator from "./segment-translator"
 import { createSegmentPairs, joinSegments, type SegmentPair, splitIntoSegments } from "@/utils/segmentation"
-import { Loader2, Keyboard, Save, FileDown, AlertTriangle } from "lucide-react"
+import { Loader2, Keyboard, Save, FileDown, AlertTriangle, RefreshCw } from "lucide-react"
 import { translateText } from "@/app/actions/translate"
 import AlignmentLegend from "./alignment-legend"
 import { useKeyboardShortcuts } from "@/contexts/keyboard-shortcuts-context"
@@ -95,35 +95,84 @@ export default function SegmentedTranslator({
     return () => clearTimeout(timeoutId)
   }, [sourceText, targetText, activeSegmentId, segments.length])
 
-  // Manipular atualização de segmento - apenas atualiza o estado local, não o texto alvo
-  const handleUpdateSegment = useCallback((id: string, translation: string) => {
-    setSegments((prev) => {
-      // Encontrar o segmento a ser atualizado
-      const segmentIndex = prev.findIndex((s) => s.id === id)
-      if (segmentIndex === -1) return prev
+  const syncTargetText = useCallback(() => {
+    try {
+      const targetSegments = segmentsRef.current.map((s) => s.target)
+      const newTargetText = joinSegments(targetSegments)
+      onUpdateTargetText(newTargetText)
+    } catch (error) {
+      console.error("Error syncing target text:", error)
+    }
+  }, [onUpdateTargetText])
 
-      const segmentToUpdate = prev[segmentIndex]
+  // Manipular atualização de segmento - agora sincroniza automaticamente
+  const handleUpdateSegment = useCallback(
+    (id: string, translation: string) => {
+      setSegments((prev) => {
+        // Encontrar o segmento a ser atualizado
+        const segmentIndex = prev.findIndex((s) => s.id === id)
+        if (segmentIndex === -1) return prev
 
-      // Pular quebras de linha
-      if (segmentToUpdate.isLineBreak) return prev
+        const segmentToUpdate = prev[segmentIndex]
 
-      // Se a tradução não mudou, não atualizar
-      if (segmentToUpdate.target === translation) return prev
+        // Pular quebras de linha
+        if (segmentToUpdate.isLineBreak) return prev
 
-      // Criar novo array com o segmento atualizado
-      const newSegments = [...prev]
-      newSegments[segmentIndex] = {
-        ...segmentToUpdate,
-        target: translation,
-        isTranslated: Boolean(translation.trim()),
+        // Se a tradução não mudou, não atualizar
+        if (segmentToUpdate.target === translation) return prev
+
+        // Criar novo array com o segmento atualizado
+        const newSegments = [...prev]
+        newSegments[segmentIndex] = {
+          ...segmentToUpdate,
+          target: translation,
+          isTranslated: Boolean(translation.trim()),
+        }
+
+        // Atualizar a referência
+        segmentsRef.current = newSegments
+
+        setTimeout(() => {
+          const targetSegments = newSegments.map((s) => s.target)
+          const newTargetText = joinSegments(targetSegments)
+          onUpdateTargetText(newTargetText)
+        }, 100)
+
+        return newSegments
+      })
+    },
+    [onUpdateTargetText],
+  )
+
+  const handleResegment = useCallback(() => {
+    setIsProcessing(true)
+
+    setTimeout(() => {
+      try {
+        // Get current target text from segments
+        const currentTargetText = joinSegments(segmentsRef.current.map((s) => s.target))
+
+        // Re-segment both texts
+        const sourceSegments = splitIntoSegments(sourceText, "sentence")
+        const targetSegments = currentTargetText ? splitIntoSegments(currentTargetText, "sentence") : []
+
+        const newSegments = createSegmentPairs(sourceSegments, targetSegments)
+
+        setSegments(newSegments)
+        segmentsRef.current = newSegments
+
+        // Maintain active segment if possible
+        const displayableSegments = newSegments.filter((s) => !s.isLineBreak)
+        if (displayableSegments.length > 0 && !activeSegmentId) {
+          setActiveSegmentId(displayableSegments[0].id)
+        }
+      } catch (error) {
+        console.error("Error re-segmenting:", error)
+      } finally {
+        setIsProcessing(false)
       }
-
-      // Atualizar a referência
-      segmentsRef.current = newSegments
-
-      return newSegments
-    })
-  }, [])
+    }, 0)
+  }, [sourceText, activeSegmentId])
 
   // Manipuladores de navegação
   const handleNextSegment = useCallback(() => {
@@ -182,12 +231,8 @@ export default function SegmentedTranslator({
   // Função para salvar a tradução e gerar relatório
   const handleSaveTranslation = useCallback(() => {
     try {
-      // Extrair texto alvo dos segmentos
-      const targetSegments = segmentsRef.current.map((s) => s.target)
-      const newTargetText = joinSegments(targetSegments)
-
-      // Atualizar o texto alvo
-      onUpdateTargetText(newTargetText)
+      // Sync final target text
+      syncTargetText()
 
       // Gerar relatório de qualidade
       const displayableSegments = segmentsRef.current.filter((s) => !s.isLineBreak)
@@ -201,6 +246,7 @@ export default function SegmentedTranslator({
       })
 
       // Calcular estatísticas de leiturabilidade
+      const newTargetText = joinSegments(segmentsRef.current.map((s) => s.target))
       const sourceReadability = calculateReadability(sourceText, sourceLang)
       const targetReadability = calculateReadability(newTargetText, targetLang)
 
@@ -234,7 +280,7 @@ export default function SegmentedTranslator({
     } catch (error) {
       console.error("Error saving translation:", error)
     }
-  }, [onUpdateTargetText, sourceText, sourceLang, targetLang])
+  }, [syncTargetText, sourceText, sourceLang, targetLang])
 
   // Registrar atalhos de teclado globais
   useEffect(() => {
@@ -282,7 +328,6 @@ export default function SegmentedTranslator({
         )
 
         try {
-          // Chaves de API podem ser fornecidas nas configurações
           const result = await translateText(
             segment.source,
             sourceLang,
@@ -291,6 +336,9 @@ export default function SegmentedTranslator({
             apiSettings?.openaiApiKey,
             apiSettings?.anthropicApiKey,
             apiSettings?.provider || "gemini",
+            apiSettings?.geminiModel || "gemini-1.5-flash",
+            apiSettings?.openaiModel || "gpt-4o",
+            apiSettings?.anthropicModel || "claude-3-5-sonnet-20241022",
           )
           console.log(`Resultado da tradução:`, result)
 
@@ -341,6 +389,8 @@ export default function SegmentedTranslator({
           `Não foi possível traduzir ${newFailedSegments.length} segmento(s). Tente traduzi-los manualmente.`,
         )
       }
+
+      setTimeout(syncTargetText, 1000)
 
       console.log("Tradução em lote concluída")
     } catch (error) {
@@ -453,9 +503,25 @@ export default function SegmentedTranslator({
         <div className="flex items-center gap-2">
           <AlignmentLegend />
 
-          <Button variant="outline" size="sm" className="h-8" onClick={() => setShortcutsModalOpen(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 bg-transparent"
+            onClick={() => setShortcutsModalOpen(true)}
+          >
             <Keyboard className="h-4 w-4 mr-1" />
             Shortcuts
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 bg-transparent"
+            onClick={handleResegment}
+            title="Re-segment text"
+          >
+            <RefreshCw className="h-4 w-4 mr-1" />
+            Re-segment
           </Button>
         </div>
 

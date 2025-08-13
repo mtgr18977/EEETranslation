@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { translateText } from "@/app/actions/translate"
-import { Loader2, Wand2, Check, X, AlignLeft, Keyboard, AlertCircle, AlertTriangle, Book } from "lucide-react"
+import { Loader2, Wand2, Check, X, AlignLeft, Keyboard, AlertCircle, AlertTriangle, Book, Copy } from "lucide-react"
 import type { SegmentPair } from "@/utils/segmentation"
 import AlignedText from "./aligned-text"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -28,7 +28,15 @@ interface SegmentTranslatorProps {
   onActivate: () => void
   glossaryTerms?: GlossaryTerm[]
   isFailedSegment?: boolean
-  apiSettings?: { libreApiUrl?: string }
+  apiSettings?: {
+    provider?: string
+    geminiApiKey?: string
+    openaiApiKey?: string
+    anthropicApiKey?: string
+    geminiModel?: string
+    openaiModel?: string
+    anthropicModel?: string
+  }
 }
 
 // Usar memo para evitar renderizações desnecessárias
@@ -104,17 +112,17 @@ const SegmentTranslator = memo(
       setTranslationError(null)
 
       try {
-        // Obter a URL da API do LibreTranslate das props
-        const libreApiUrl = apiSettings?.libreApiUrl
-
         const result = await translateText(
           segment.source,
           sourceLang,
           targetLang,
-          undefined,
-          undefined,
-          undefined,
-          "gemini",
+          apiSettings?.geminiApiKey,
+          apiSettings?.openaiApiKey,
+          apiSettings?.anthropicApiKey,
+          apiSettings?.provider || "gemini",
+          apiSettings?.geminiModel || "gemini-1.5-flash",
+          apiSettings?.openaiModel || "gpt-4o",
+          apiSettings?.anthropicModel || "claude-3-5-sonnet-20241022",
         )
 
         if (result.success && result.translation) {
@@ -172,6 +180,23 @@ const SegmentTranslator = memo(
       }
     }
 
+    function handleCopySourceToTarget() {
+      if (segment.source) {
+        setLocalText(segment.source)
+        onUpdateSegment(segment.id, segment.source)
+
+        // Visual feedback
+        if (textareaRef.current) {
+          textareaRef.current.classList.add("bg-green-100")
+          setTimeout(() => {
+            if (textareaRef.current) {
+              textareaRef.current.classList.remove("bg-green-100")
+            }
+          }, 300)
+        }
+      }
+    }
+
     // Registrar atalhos de teclado específicos para este segmento quando estiver ativo
     useEffect(() => {
       if (isActive) {
@@ -182,7 +207,9 @@ const SegmentTranslator = memo(
         }
 
         registerShortcutHandler("suggestTranslation", handleTranslate)
+        registerShortcutHandler("translateSegment", handleTranslate)
         registerShortcutHandler("toggleAlignView", () => handleToggleViewMode(viewMode === "edit" ? "align" : "edit"))
+        registerShortcutHandler("copySourceToTarget", handleCopySourceToTarget)
 
         return () => {
           // Limpar os handlers quando o componente for desmontado ou não estiver mais ativo
@@ -191,7 +218,9 @@ const SegmentTranslator = memo(
             unregisterShortcutHandler("rejectSuggestion")
           }
           unregisterShortcutHandler("suggestTranslation")
+          unregisterShortcutHandler("translateSegment")
           unregisterShortcutHandler("toggleAlignView")
+          unregisterShortcutHandler("copySourceToTarget")
         }
       }
     }, [isActive, suggestion, registerShortcutHandler, unregisterShortcutHandler, viewMode])
@@ -231,15 +260,9 @@ const SegmentTranslator = memo(
                   <p className="font-medium">{term.term}</p>
                   <p className="text-xs">{term.definition}</p>
                   {term.relatedUrl && (
-                    <a
-                      href={term.relatedUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:underline flex items-center"
-                    >
+                    <ExternalLink href={term.relatedUrl} className="text-xs text-blue-600 hover:underline">
                       {term.relatedName || term.relatedUrl}
-                      <ExternalLink className="h-3 w-3 ml-1" />
-                    </a>
+                    </ExternalLink>
                   )}
                 </div>
               </TooltipContent>
@@ -350,19 +373,34 @@ const SegmentTranslator = memo(
               </Tabs>
 
               {!suggestion && viewMode === "edit" && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleTranslate}
-                  disabled={isTranslating || !segment.source.trim()}
-                >
-                  {isTranslating ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                  ) : (
-                    <Wand2 className="h-4 w-4 mr-1" />
-                  )}
-                  {isTranslating ? "Translating..." : "Suggest"}
-                </Button>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleCopySourceToTarget}
+                    disabled={!segment.source.trim()}
+                    title="Copy source to target (Ctrl+Alt+C)"
+                  >
+                    <Copy className="h-4 w-4 mr-1" />
+                    Copy
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleTranslate}
+                    disabled={isTranslating || !segment.source.trim()}
+                    title="Translate segment (Ctrl+Alt+Enter)"
+                  >
+                    {isTranslating ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    ) : (
+                      <Wand2 className="h-4 w-4 mr-1" />
+                    )}
+                    {isTranslating ? "Translating..." : "Suggest"}
+                    {!isTranslating && <kbd className="ml-1 text-xs bg-muted px-1 rounded">Ctrl+Alt+Enter</kbd>}
+                  </Button>
+                </div>
               )}
             </div>
           </div>
@@ -403,7 +441,7 @@ const SegmentTranslator = memo(
                         onChange={handleTextChange}
                         onBlur={handleBlur}
                         placeholder="Enter translation..."
-                        className={`min-h-[60px] ${
+                        className={`min-h-[60px] transition-colors duration-300 ${
                           isFailedSegment
                             ? "bg-red-50 border-red-300"
                             : hasErrors

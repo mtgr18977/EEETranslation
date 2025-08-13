@@ -5,8 +5,7 @@
 import { ERROR_TYPES } from "./constants"
 import { ErrorService } from "./error-service"
 
-// Updated URL base da API do Gemini - using gemini-1.5-flash model
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+const GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
 /**
  * Traduz texto usando a API do Gemini
@@ -14,9 +13,16 @@ const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/
  * @param sourceLang Idioma de origem
  * @param targetLang Idioma de destino
  * @param apiKey Chave de API do Gemini
+ * @param model Modelo do Gemini a ser usado (opcional, padrão: gemini-1.5-flash)
  * @returns Objeto com o resultado da tradução
  */
-export async function translateWithGemini(text: string, sourceLang: string, targetLang: string, apiKey: string) {
+export async function translateWithGemini(
+  text: string,
+  sourceLang: string,
+  targetLang: string,
+  apiKey: string,
+  model = "gemini-1.5-flash",
+) {
   if (!text.trim()) {
     return {
       success: false,
@@ -41,8 +47,10 @@ export async function translateWithGemini(text: string, sourceLang: string, targ
     // Construir o prompt para o Gemini
     const prompt = `Traduza este texto do ${sourceLanguageName} para ${targetLanguageName}. Mantenha a formatação original, incluindo quebras de linha e espaços. Retorne apenas o texto traduzido, sem comentários adicionais:\n\n${text}`
 
+    const apiUrl = `${GEMINI_API_BASE_URL}/${model}:generateContent?key=${apiKey}`
+
     // Fazer a requisição para a API do Gemini com o formato correto
-    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+    const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -79,6 +87,7 @@ export async function translateWithGemini(text: string, sourceLang: string, targ
         success: true,
         translation: cleanedTranslation,
         provider: "gemini",
+        model, // Include model in response
       }
     } else {
       console.error("Erro na API do Gemini:", data)

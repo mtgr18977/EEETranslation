@@ -2,22 +2,19 @@ import { ERROR_TYPES } from "./constants"
 import { ErrorService } from "./error-service"
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
-const OPENAI_MODEL = "gpt-4o"
 
 export async function translateWithOpenAI(
   text: string,
   sourceLang: string,
   targetLang: string,
   apiKey: string,
+  model = "gpt-4o", // Added model parameter with default
 ) {
   if (!text.trim()) {
     return {
       success: false,
       message: "No text provided",
-      error: ErrorService.createError(
-        ERROR_TYPES.VALIDATION,
-        "Texto vazio para tradução",
-      ),
+      error: ErrorService.createError(ERROR_TYPES.VALIDATION, "Texto vazio para tradução"),
     }
   }
 
@@ -25,10 +22,7 @@ export async function translateWithOpenAI(
     return {
       success: false,
       message: "API key is required",
-      error: ErrorService.createError(
-        ERROR_TYPES.VALIDATION,
-        "Chave de API do OpenAI não fornecida",
-      ),
+      error: ErrorService.createError(ERROR_TYPES.VALIDATION, "Chave de API do OpenAI não fornecida"),
     }
   }
 
@@ -45,10 +39,8 @@ export async function translateWithOpenAI(
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: OPENAI_MODEL,
-        messages: [
-          { role: "user", content: prompt },
-        ],
+        model, // Use dynamic model instead of constant
+        messages: [{ role: "user", content: prompt }],
         temperature: 0.2,
         max_tokens: 8192,
       }),
@@ -59,7 +51,12 @@ export async function translateWithOpenAI(
     if (response.ok && data.choices && data.choices.length > 0) {
       const translatedText = data.choices[0].message.content as string
       const cleanedTranslation = cleanTranslation(translatedText)
-      return { success: true, translation: cleanedTranslation, provider: "openai" }
+      return {
+        success: true,
+        translation: cleanedTranslation,
+        provider: "openai",
+        model, // Include model in response
+      }
     } else {
       console.error("Erro na API do OpenAI:", data)
       return {

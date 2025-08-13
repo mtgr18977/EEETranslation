@@ -2,22 +2,19 @@ import { ERROR_TYPES } from "./constants"
 import { ErrorService } from "./error-service"
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
-const ANTHROPIC_MODEL = "claude-3-sonnet-20240229"
 
 export async function translateWithAnthropic(
   text: string,
   sourceLang: string,
   targetLang: string,
   apiKey: string,
+  model = "claude-3-5-sonnet-20241022",
 ) {
   if (!text.trim()) {
     return {
       success: false,
       message: "No text provided",
-      error: ErrorService.createError(
-        ERROR_TYPES.VALIDATION,
-        "Texto vazio para tradução",
-      ),
+      error: ErrorService.createError(ERROR_TYPES.VALIDATION, "Texto vazio para tradução"),
     }
   }
 
@@ -25,10 +22,7 @@ export async function translateWithAnthropic(
     return {
       success: false,
       message: "API key is required",
-      error: ErrorService.createError(
-        ERROR_TYPES.VALIDATION,
-        "Chave de API da Anthropic não fornecida",
-      ),
+      error: ErrorService.createError(ERROR_TYPES.VALIDATION, "Chave de API da Anthropic não fornecida"),
     }
   }
 
@@ -46,12 +40,10 @@ export async function translateWithAnthropic(
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
+        model,
         max_tokens: 4096,
         temperature: 0.2,
-        messages: [
-          { role: "user", content: prompt },
-        ],
+        messages: [{ role: "user", content: prompt }],
       }),
     })
 
@@ -64,6 +56,7 @@ export async function translateWithAnthropic(
         success: true,
         translation: cleanedTranslation,
         provider: "anthropic",
+        model,
       }
     } else {
       console.error("Erro na API da Anthropic:", data)

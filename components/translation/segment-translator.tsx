@@ -13,7 +13,7 @@ import AlignedText from "@/components/aligned-text" // Updated import path
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { runQualityChecks, type QualityIssue } from "@/utils/quality-checks"
 import QualityIssuesDisplay from "../quality-issues-display" // Updated import path
-import { type GlossaryTerm, findGlossaryTerms } from "@/utils/glossary"
+import { type GlossaryTerm, findGlossaryTerms, applyGlossaryToTranslation } from "@/utils/glossary"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import ExternalLink from "../external-link" // Updated import path
 import { useKeyboardShortcuts } from "@/contexts/keyboard-shortcuts-context"
@@ -53,6 +53,7 @@ const SegmentTranslator = memo(
     const [qualityIssues, setQualityIssues] = useState<QualityIssue[]>([])
     const [highlightedTerms, setHighlightedTerms] = useState<{ term: GlossaryTerm; index: number }[]>([])
     const [translationError, setTranslationError] = useState<string | null>(null)
+    const [glossaryApplied, setGlossaryApplied] = useState(false)
 
     // Obter contexto de atalhos de teclado
     const { registerShortcutHandler, unregisterShortcutHandler } = useKeyboardShortcuts()
@@ -65,9 +66,21 @@ const SegmentTranslator = memo(
     useEffect(() => {
       if (previousSegmentId.current !== segment.id) {
         setLocalText(segment.target)
+        setGlossaryApplied(false)
         previousSegmentId.current = segment.id
       }
     }, [segment.id, segment.target])
+
+    useEffect(() => {
+      if (segment.target && glossaryTerms.length > 0 && !glossaryApplied) {
+        const appliedTranslation = applyGlossaryToTranslation(segment.source, segment.target, glossaryTerms)
+        if (appliedTranslation !== segment.target) {
+          setLocalText(appliedTranslation)
+          onUpdateSegment(segment.id, appliedTranslation)
+          setGlossaryApplied(true)
+        }
+      }
+    }, [segment.target, glossaryTerms, glossaryApplied, segment.source, segment.id, onUpdateSegment])
 
     // Verificar qualidade quando o texto muda
     useEffect(() => {
@@ -120,7 +133,12 @@ const SegmentTranslator = memo(
         )
 
         if (result.success && result.translation) {
-          setSuggestion(result.translation)
+          const glossaryAppliedTranslation = applyGlossaryToTranslation(
+            segment.source,
+            result.translation,
+            glossaryTerms,
+          )
+          setSuggestion(glossaryAppliedTranslation)
         } else {
           setTranslationError(result.message || "Falha na tradução. Tente novamente.")
         }
@@ -137,6 +155,7 @@ const SegmentTranslator = memo(
         setLocalText(suggestion)
         onUpdateSegment(segment.id, suggestion)
         setSuggestion(null)
+        setGlossaryApplied(true)
       }
     }
 
@@ -145,7 +164,6 @@ const SegmentTranslator = memo(
     }
 
     function handleToggleViewMode(value: string) {
-      // Salvar mudanças antes de mudar de visualização
       if (localText !== segment.target) {
         onUpdateSegment(segment.id, localText)
       }
@@ -156,47 +174,30 @@ const SegmentTranslator = memo(
     function handleTextChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
       const newText = e.target.value
       setLocalText(newText)
+      setGlossaryApplied(false)
     }
 
     function handleBlur() {
       if (localText !== segment.target) {
-        onUpdateSegment(segment.id, localText)
+        const glossaryAppliedText = applyGlossaryToTranslation(segment.source, localText, glossaryTerms)
+        if (glossaryAppliedText !== localText) {
+          setLocalText(glossaryAppliedText)
+          onUpdateSegment(segment.id, glossaryAppliedText)
+          setGlossaryApplied(true)
+        } else {
+          onUpdateSegment(segment.id, localText)
+        }
       }
     }
 
     function handleActivate() {
       if (!isActive) {
-        // Salvar mudanças antes de ativar
         if (localText !== segment.target) {
           onUpdateSegment(segment.id, localText)
         }
         onActivate()
       }
     }
-
-    // Registrar atalhos de teclado específicos para este segmento quando estiver ativo
-    useEffect(() => {
-      if (isActive) {
-        // Registrar atalhos específicos para este segmento
-        if (suggestion) {
-          registerShortcutHandler("applySuggestion", handleApplySuggestion)
-          registerShortcutHandler("rejectSuggestion", handleRejectSuggestion)
-        }
-
-        registerShortcutHandler("suggestTranslation", handleTranslate)
-        registerShortcutHandler("toggleAlignView", () => handleToggleViewMode(viewMode === "edit" ? "align" : "edit"))
-
-        return () => {
-          // Limpar os handlers quando o componente for desmontado ou não estiver mais ativo
-          if (suggestion) {
-            unregisterShortcutHandler("applySuggestion")
-            unregisterShortcutHandler("rejectSuggestion")
-          }
-          unregisterShortcutHandler("suggestTranslation")
-          unregisterShortcutHandler("toggleAlignView")
-        }
-      }
-    }, [isActive, suggestion, registerShortcutHandler, unregisterShortcutHandler, viewMode])
 
     // Renderizar texto fonte com termos do glossário destacados
     const renderSourceText = () => {
@@ -211,16 +212,13 @@ const SegmentTranslator = memo(
       const result = []
       let lastIndex = 0
 
-      // Ordenar termos por índice para garantir a ordem correta
       const sortedTerms = [...highlightedTerms].sort((a, b) => a.index - b.index)
 
       for (const { term, index } of sortedTerms) {
-        // Adicionar texto antes do termo
         if (index > lastIndex) {
           result.push(segment.source.substring(lastIndex, index))
         }
 
-        // Adicionar o termo destacado
         const termText = segment.source.substring(index, index + term.term.length)
         result.push(
           <TooltipProvider key={`term-${index}`}>
@@ -233,15 +231,9 @@ const SegmentTranslator = memo(
                   <p className="font-medium">{term.term}</p>
                   <p className="text-xs">{term.definition}</p>
                   {term.relatedUrl && (
-                    <a
-                      href={term.relatedUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:underline flex items-center"
-                    >
+                    <ExternalLink href={term.relatedUrl} className="text-xs text-blue-600 hover:underline">
                       {term.relatedName || term.relatedUrl}
-                      <ExternalLink className="h-3 w-3 ml-1" />
-                    </a>
+                    </ExternalLink>
                   )}
                 </div>
               </TooltipContent>
@@ -252,7 +244,6 @@ const SegmentTranslator = memo(
         lastIndex = index + term.term.length
       }
 
-      // Adicionar texto restante
       if (lastIndex < segment.source.length) {
         result.push(segment.source.substring(lastIndex))
       }
@@ -269,7 +260,11 @@ const SegmentTranslator = memo(
     const hasWarnings = qualityIssues.some((issue) => issue.severity === "warning")
     const hasGlossaryTerms = highlightedTerms.length > 0
 
-    // Indicador de qualidade
+    const glossaryConsistencyIssues = highlightedTerms.filter(({ term }) => {
+      if (!segment.target) return false
+      return !segment.target.toLowerCase().includes(term.definition.toLowerCase())
+    })
+
     const QualityIndicator = () => {
       if (!segment.target.trim()) return null
 
@@ -334,6 +329,12 @@ const SegmentTranslator = memo(
                   <span>
                     {highlightedTerms.length} {highlightedTerms.length === 1 ? "termo" : "termos"}
                   </span>
+                </div>
+              )}
+              {glossaryConsistencyIssues.length > 0 && (
+                <div className="flex items-center text-orange-600 text-xs">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  <span>Inconsistência no glossário</span>
                 </div>
               )}
               <QualityIndicator />
@@ -428,7 +429,6 @@ const SegmentTranslator = memo(
                 </div>
               </div>
 
-              {/* Display quality issues */}
               {qualityIssues.length > 0 && <QualityIssuesDisplay issues={qualityIssues} />}
             </TabsContent>
 
@@ -441,7 +441,6 @@ const SegmentTranslator = memo(
     )
   },
   (prevProps, nextProps) => {
-    // Otimização de renderização - só renderizar novamente se algo importante mudar
     return (
       prevProps.segment.id === nextProps.segment.id &&
       prevProps.segment.target === nextProps.segment.target &&

@@ -14,6 +14,7 @@ type ShortcutAction =
   | "saveTranslation"
   | "showShortcuts"
   | "copySourceToTarget"
+  | "translateSegment"
 
 interface ShortcutMapping {
   action: ShortcutAction
@@ -58,6 +59,14 @@ const defaultShortcuts: ShortcutMapping[] = [
     key: "t",
     altKey: true,
     description: "Suggest translation for current segment",
+    category: "translation",
+  },
+  {
+    action: "translateSegment",
+    key: "Enter",
+    ctrlKey: true,
+    altKey: true,
+    description: "Translate current segment (Cmd/Ctrl+Enter)",
     category: "translation",
   },
   {
@@ -148,12 +157,11 @@ export function KeyboardShortcutsProvider({ children }) {
       ) {
         // Permitir tecla Escape mesmo em campos de entrada
         if (event.key !== "Escape") {
-          // Exceção para Ctrl+Enter (próximo não traduzido) e Ctrl+Alt+C (copiar source para target)
-          // que devem funcionar mesmo em campos de texto
           const isCtrlEnter = event.ctrlKey && event.key === "Enter"
+          const isCtrlAltEnter = event.ctrlKey && event.altKey && event.key === "Enter"
           const isCtrlAltC = event.ctrlKey && event.altKey && event.key === "c"
 
-          if (!isCtrlEnter && !isCtrlAltC) {
+          if (!isCtrlEnter && !isCtrlAltEnter && !isCtrlAltC) {
             return
           }
         }
