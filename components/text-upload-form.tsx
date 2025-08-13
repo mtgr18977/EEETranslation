@@ -194,7 +194,7 @@ export function TextUploadForm() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="pt-file">Arquivo em Português (.md ou .txt)</Label>
               <Input
@@ -251,13 +251,14 @@ export function TextUploadForm() {
             </Alert>
           )}
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-3">
             <Button onClick={processFiles} disabled={uploadedFiles.length !== 2 || isProcessing} className="flex-1">
               {isProcessing ? "Processando..." : "Processar Arquivos"}
             </Button>
             {uploadedFiles.length > 0 && (
-              <Button variant="outline" onClick={clearFiles}>
-                <Trash2 className="h-4 w-4" />
+              <Button variant="outline" onClick={clearFiles} className="sm:w-auto bg-transparent">
+                <Trash2 className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Limpar</span>
               </Button>
             )}
           </div>
@@ -284,14 +285,18 @@ export function TextUploadForm() {
                       </Button>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <Label className="text-xs text-muted-foreground">PORTUGUÊS</Label>
-                      <p className="text-sm mt-1">{pair.portuguese}</p>
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        PORTUGUÊS
+                      </Label>
+                      <p className="text-sm mt-2 leading-relaxed">{pair.portuguese}</p>
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">INGLÊS</Label>
-                      <p className="text-sm mt-1">{pair.english}</p>
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        INGLÊS
+                      </Label>
+                      <p className="text-sm mt-2 leading-relaxed">{pair.english}</p>
                     </div>
                   </div>
                 </div>

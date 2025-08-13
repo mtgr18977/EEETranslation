@@ -264,17 +264,17 @@ export function ExportManager() {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">{translationMemory.length}</div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="text-center p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="text-3xl font-bold text-blue-600 mb-1">{translationMemory.length}</div>
               <div className="text-sm text-muted-foreground">Total de Pares</div>
             </div>
-            <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">{getFilteredMemory().length}</div>
+            <div className="text-center p-6 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <div className="text-3xl font-bold text-green-600 mb-1">{getFilteredMemory().length}</div>
               <div className="text-sm text-muted-foreground">Para Exportar</div>
             </div>
-            <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-              <div className="text-2xl font-bold text-purple-600">{categories.length}</div>
+            <div className="text-center p-6 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+              <div className="text-3xl font-bold text-purple-600 mb-1">{categories.length}</div>
               <div className="text-sm text-muted-foreground">Categorias</div>
             </div>
           </div>
@@ -282,8 +282,8 @@ export function ExportManager() {
           <Separator />
 
           {/* Export Configuration */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="format">Formato de Exportação</Label>
                 <Select value={selectedFormat} onValueChange={(value: ExportFormat) => setSelectedFormat(value)}>
@@ -322,7 +322,7 @@ export function ExportManager() {
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div className="space-y-2">
                 <Label>Filtrar por Categorias</Label>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
@@ -350,11 +350,16 @@ export function ExportManager() {
                   )}
                 </div>
                 {categories.length > 0 && (
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => setSelectedCategories(categories)}>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setSelectedCategories(categories)}
+                      className="flex-1"
+                    >
                       Selecionar Todas
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => setSelectedCategories([])}>
+                    <Button size="sm" variant="outline" onClick={() => setSelectedCategories([])} className="flex-1">
                       Limpar Seleção
                     </Button>
                   </div>
@@ -390,17 +395,23 @@ export function ExportManager() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <h4 className="font-medium text-sm">Formato JSON</h4>
-              <p className="text-xs text-muted-foreground">
-                Arquivos exportados pelo Tradutor ou outros sistemas compatíveis
-              </p>
+            <div className="space-y-3">
+              <h4 className="font-medium">Formato TMX</h4>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary">SDL Trados Studio</Badge>
+                <Badge variant="secondary">MemoQ</Badge>
+                <Badge variant="secondary">Wordfast</Badge>
+                <Badge variant="secondary">OmegaT</Badge>
+              </div>
             </div>
-            <div className="space-y-2">
-              <h4 className="font-medium text-sm">Formato CSV</h4>
-              <p className="text-xs text-muted-foreground">
-                Planilhas com colunas: Português, Inglês, Categoria (opcional)
-              </p>
+            <div className="space-y-3">
+              <h4 className="font-medium">Formato CSV</h4>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary">Microsoft Excel</Badge>
+                <Badge variant="secondary">Google Sheets</Badge>
+                <Badge variant="secondary">LibreOffice Calc</Badge>
+                <Badge variant="secondary">Análise de dados</Badge>
+              </div>
             </div>
           </div>
         </CardContent>

@@ -301,21 +301,21 @@ export function TranslationMemoryList() {
 
             <TabsContent value="overview" className="space-y-6">
               {/* Main Statistics */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">{translationMemory.length}</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="text-center p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <div className="text-3xl font-bold text-blue-600 mb-1">{translationMemory.length}</div>
                   <div className="text-sm text-muted-foreground">Total de Pares</div>
                 </div>
-                <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">{categories.length}</div>
+                <div className="text-center p-6 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <div className="text-3xl font-bold text-green-600 mb-1">{categories.length}</div>
                   <div className="text-sm text-muted-foreground">Categorias</div>
                 </div>
-                <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                  <div className="text-2xl font-bold text-purple-600">{qualityMetrics.averageLength}</div>
+                <div className="text-center p-6 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <div className="text-3xl font-bold text-purple-600 mb-1">{qualityMetrics.averageLength}</div>
                   <div className="text-sm text-muted-foreground">Chars Médios</div>
                 </div>
-                <div className="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                  <div className={`text-2xl font-bold ${getQualityColor(qualityMetrics.qualityScore)}`}>
+                <div className="text-center p-6 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                  <div className={`text-3xl font-bold mb-1 ${getQualityColor(qualityMetrics.qualityScore)}`}>
                     {qualityMetrics.qualityScore}%
                   </div>
                   <div className="text-sm text-muted-foreground">Qualidade Média</div>
@@ -399,7 +399,7 @@ export function TranslationMemoryList() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="text-center p-4 border rounded-lg">
                       <div className="text-lg font-bold">
                         {
